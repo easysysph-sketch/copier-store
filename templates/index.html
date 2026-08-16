@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>CopierStore | Office Equipment & Supplies</title>
+
+    <style>
+        :root {
+            --blue: #2563eb;
+            --blue-dark: #1d4ed8;
+            --navy: #0f172a;
+            --text: #1f2937;
+            --muted: #64748b;
+            --line: #e2e8f0;
+            --soft: #f8fafc;
+            --green: #16a34a;
+            --red: #dc2626;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f7fb;
+            color: var(--text);
+            line-height: 1.5;
+        }
+
+        a {
+            text-decoration: none;
+        }
+
+        button,
+        input,
+        select {
+            font: inherit;
+        }
+
+        /* NAVBAR */
+
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            background: rgba(255,255,255,.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--line);
+            padding: 15px 6%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .logo {
+            color: var(--navy);
+            font-size: 23px;
+            font-weight: 950;
+            letter-spacing: -.7px;
+            white-space: nowrap;
+        }
+
+        .logo span {
+            color: var(--blue);
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 6px;
+        }
+
+        .nav-links > a {
+            color: #475569;
+            padding: 9px 12px;
+            border-radius: 9px;
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .nav-links > a:hover {
+            background: #f1f5f9;
+            color: var(--text);
+        }
+
+        .ai-nav-link {
+            color: #6d28d9 !important;
+        }
+
+        .cart-link {
+            background: var(--blue) !important;
+            color: white !important;
+            padding: 10px 15px !important;
+        }
+
+        .account-link {
+            border: 1px solid var(--line);
+        }
+
+        /* PAGE */
+
+        .container {
+            width: min(1220px, calc(100% - 32px));
+            margin: auto;
+            padding: 28px 0 70px;
+        }
+
+        /* HERO */
+
+        .hero {
+            min-height: 430px;
+            position: relative;
+            overflow: hidden;
+            border-radius: 24px;
+            background:
+                radial-gradient(circle at 85% 15%, rgba(96,165,250,.30), transparent 28%),
+                radial-gradient(circle at 70% 100%, rgba(37,99,235,.20), transparent 34%),
+                #0f172a;
+            color: white;
+            display: flex;
+            align-items: center;
+            padding: 58px;
+            margin-bottom: 42px;
+        }
+
+        .hero:before,
+        .hero:after {
+            content: "";
+            position: absolute;
+            border: 1px solid rgba(255,255,255,.09);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .hero:before {
+            width: 470px;
+            height: 470px;
+            right: -160px;
+            top: -190px;
+        }
+
+        .hero:after {
+            width: 330px;
+            height: 330px;
+            right: 35px;
+            bottom: -205px;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            max-width: 720px;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 11px;
+            border: 1px solid rgba(255,255,255,.14);
+            background: rgba(255,255,255,.08);
+            border-radius: 999px;
+            color: #dbeafe;
+            font-size: 11px;
+            font-weight: 900;
+            margin-bottom: 18px;
+        }
+
+        .hero h1 {
+            font-size: clamp(37px, 5vw, 58px);
+            line-height: 1.03;
+            letter-spacing: -2px;
+            margin-bottom: 17px;
+        }
+
+        .hero h1 span {
+            color: #60a5fa;
+        }
+
+        .hero p {
+            max-width: 650px;
+            color: #cbd5e1;
+            font-size: 16px;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 27px;
+        }
+
+        .hero-button {
+            display: inline-block;
+            padding: 12px 17px;
+            border-radius: 10px;
+            background: white;
+            color: var(--navy);
+            font-weight: 900;
+            font-size: 13px;
+        }
+
+        .hero-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .hero-secondary {
+            display: inline-block;
+            padding: 12px 17px;
+            border: 1px solid rgba(255,255,255,.18);
+            border-radius: 10px;
+            color: white;
+            background: rgba(255,255,255,.06);
+            font-weight: 800;
+            font-size: 13px;
+        }
+
+        .hero-secondary:hover {
+            background: rgba(255,255,255,.11);
+        }
+
+        /* TRUST STRIP */
+
+        .trust-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 45px;
+        }
+
+        .trust-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: white;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 16px;
+        }
+
+        .trust-icon {
+            width: 40px;
+            height: 40px;
+            display: grid;
+            place-items: center;
+            border-radius: 11px;
+            background: #eff6ff;
+            font-size: 19px;
+            flex-shrink: 0;
+        }
+
+        .trust-card strong {
+            display: block;
+            font-size: 13px;
+            margin-bottom: 2px;
+        }
+
+        .trust-card span {
+            display: block;
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        /* PRODUCTS HEADER */
+
+        .section-heading {
+            display: flex;
+            justify-content: space-between;
+            align-items: end;
+            gap: 20px;
+            margin-bottom: 18px;
+        }
+
+        .eyebrow {
+            color: var(--blue);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 10px;
+            font-weight: 900;
+            margin-bottom: 5px;
+        }
+
+        .section-heading h2 {
+            font-size: 30px;
+            letter-spacing: -.8px;
+        }
+
+        .section-heading p {
+            color: var(--muted);
+            font-size: 13px;
+            margin-top: 3px;
+        }
+
+        /* FILTERS */
+
+        .browse-panel {
+            background: white;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 15px;
+            margin-bottom: 18px;
+        }
+
+        .filter-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            flex: 1 1 300px;
+        }
+
+        .search-box input {
+            width: 100%;
+            height: 43px;
+            padding: 0 13px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            outline: none;
+            font-size: 13px;
+        }
+
+        .search-box input:focus {
+            border-color: var(--blue);
+            box-shadow: 0 0 0 3px rgba(37,99,235,.10);
+        }
+
+        .price-filter {
+            height: 43px;
+            min-width: 175px;
+            padding: 0 11px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            background: white;
+            color: var(--text);
+            font-size: 13px;
+        }
+
+        .category-buttons {
+            display: flex;
+            gap: 7px;
+            flex-wrap: wrap;
+            margin-top: 11px;
+        }
+
+        .category-btn {
+            border: 1px solid #d1d5db;
+            background: white;
+            color: #475569;
+            padding: 8px 12px;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .category-btn:hover {
+            border-color: #93c5fd;
+            color: var(--blue);
+        }
+
+        .category-btn.active {
+            background: var(--blue);
+            color: white;
+            border-color: var(--blue);
+        }
+
+        /* PRODUCTS */
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 15px;
+        }
+
+        .product-card {
+            position: relative;
+            overflow: hidden;
+            background: white;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 15px;
+            transition: .22s ease;
+        }
+
+        .product-card:hover {
+            transform: translateY(-4px);
+            border-color: #bfdbfe;
+            box-shadow: 0 16px 35px rgba(15,23,42,.08);
+        }
+
+        .product-media {
+            height: 170px;
+            border-radius: 12px;
+            background:
+                radial-gradient(circle at 50% 25%, #ffffff 0 13%, transparent 14%),
+                linear-gradient(145deg, #eff6ff, #f8fafc);
+            border: 1px solid #e0e7ff;
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+            margin-bottom: 14px;
+        }
+
+        .product-media img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            padding: 13px;
+        }
+
+        .product-icon {
+            width: 65px;
+            height: 65px;
+            display: grid;
+            place-items: center;
+            border-radius: 17px;
+            background: white;
+            box-shadow: 0 7px 20px rgba(15,23,42,.07);
+            font-size: 33px;
+        }
+
+        .product-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            align-items: start;
+        }
+
+        .category {
+            color: var(--blue);
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            margin-bottom: 5px;
+        }
+
+        .stock {
+            flex-shrink: 0;
+            font-size: 9px;
+            font-weight: 900;
+            padding: 5px 7px;
+            border-radius: 999px;
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .stock.out {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .product-card h3 {
+            min-height: 42px;
+            font-size: 15px;
+            line-height: 1.35;
+            margin-bottom: 5px;
+        }
+
+        .product-link {
+            color: var(--navy);
+        }
+
+        .product-link:hover {
+            color: var(--blue);
+        }
+
+        .product-description {
+            color: var(--muted);
+            font-size: 11px;
+            min-height: 34px;
+        }
+
+        .price {
+            color: var(--navy);
+            font-size: 21px;
+            font-weight: 950;
+            margin: 12px 0;
+        }
+
+        .quantity-control {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 11px;
+            margin: 12px 0;
+            padding: 7px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: var(--soft);
+        }
+
+        .quantity-control button {
+            width: 30px;
+            height: 30px;
+            border: 0;
+            border-radius: 8px;
+            background: white;
+            color: var(--text);
+            font-size: 18px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .quantity-control button:hover {
+            background: #dbeafe;
+            color: var(--blue);
+        }
+
+        .quantity-value {
+            min-width: 22px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .product-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 7px;
+        }
+
+        .product-actions form {
+            min-width: 0;
+        }
+
+        .add-cart,
+        .buy-now {
+            width: 100%;
+            border: 0;
+            padding: 10px 7px;
+            border-radius: 9px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 900;
+        }
+
+        .add-cart {
+            background: var(--blue);
+            color: white;
+        }
+
+        .add-cart:hover {
+            background: var(--blue-dark);
+        }
+
+        .buy-now {
+            background: var(--navy);
+            color: white;
+        }
+
+        .buy-now:hover {
+            background: #1e293b;
+        }
+
+        .disabled-button {
+            width: 100%;
+            border: 0;
+            padding: 10px;
+            border-radius: 9px;
+            background: #e2e8f0;
+            color: #94a3b8;
+            font-size: 11px;
+            font-weight: 900;
+            cursor: not-allowed;
+        }
+
+        /* SERVICES */
+
+        .services {
+            margin-top: 55px;
+        }
+
+        .service-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .service-card {
+            position: relative;
+            overflow: hidden;
+            background: white;
+            border: 1px solid var(--line);
+            border-radius: 17px;
+            padding: 23px;
+        }
+
+        .service-card.featured {
+            background: var(--navy);
+            color: white;
+            border-color: var(--navy);
+        }
+
+        .service-icon {
+            width: 45px;
+            height: 45px;
+            display: grid;
+            place-items: center;
+            border-radius: 12px;
+            background: #eff6ff;
+            margin-bottom: 16px;
+            font-size: 21px;
+        }
+
+        .featured .service-icon {
+            background: rgba(255,255,255,.10);
+        }
+
+        .service-card h3 {
+            font-size: 17px;
+            margin-bottom: 7px;
+        }
+
+        .service-card p {
+            color: var(--muted);
+            font-size: 12px;
+            margin-bottom: 15px;
+        }
+
+        .featured p {
+            color: #cbd5e1;
+        }
+
+        .service-link {
+            color: var(--blue);
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .featured .service-link {
+            color: #93c5fd;
+        }
+
+        /* FOOTER */
+
+        footer {
+            margin-top: 55px;
+            padding: 25px 0 0;
+            border-top: 1px solid var(--line);
+            color: var(--muted);
+            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        /* AI FLOAT */
+
+        .ai-button {
+            position: fixed;
+            right: 22px;
+            bottom: 22px;
+            z-index: 60;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            background: var(--navy);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 999px;
+            box-shadow: 0 12px 30px rgba(15,23,42,.20);
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .ai-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .no-results {
+            display: none;
+            grid-column: 1 / -1;
+            background: white;
+            border: 1px solid var(--line);
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            color: var(--muted);
+        }
+
+        /* RESPONSIVE */
+
+        @media (max-width: 1050px) {
+            .products-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 800px) {
+            .nav-links > a:not(.cart-link):not(.account-link) {
+                display: none;
+            }
+
+            .hero {
+                padding: 42px 30px;
+            }
+
+            .trust-grid,
+            .service-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .products-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .section-heading {
+                align-items: start;
+                flex-direction: column;
+            }
+        }
+
+        @media (max-width: 520px) {
+            .navbar {
+                padding: 13px 15px;
+            }
+
+            .account-link {
+                display: none !important;
+            }
+
+            .container {
+                width: calc(100% - 20px);
+                padding-top: 15px;
+            }
+
+            .hero {
+                min-height: 420px;
+                border-radius: 18px;
+                padding: 32px 22px;
+            }
+
+            .hero h1 {
+                font-size: 35px;
+                letter-spacing: -1.2px;
+            }
+
+            .products-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 9px;
+            }
+
+            .product-card {
+                padding: 10px;
+                border-radius: 13px;
+            }
+
+            .product-media {
+                height: 125px;
+            }
+
+            .product-card h3 {
+                font-size: 13px;
+            }
+
+            .price {
+                font-size: 17px;
+            }
+
+            .product-actions {
+                grid-template-columns: 1fr;
+            }
+
+            .trust-card {
+                padding: 13px;
+            }
+
+            footer {
+                flex-direction: column;
+            }
+
+            .ai-button {
+                right: 12px;
+                bottom: 12px;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+</head>
+
+<body>
+
+<nav class="navbar">
+
+    <a href="/" class="logo">
+        Copier<span>Store</span>
+    </a>
+
+    <div class="nav-links">
+
+        <a href="/">
+            Home
+        </a>
+
+        <a href="#products">
+            Products
+        </a>
+
+        <a href="/support" class="ai-nav-link">
+            ✨ AI Support
+        </a>
+
+        <a href="/wishlist" class="nav-link" style="text-decoration:none;font-weight:800;">♡ Wishlist</a>
+<a href="/cart" class="cart-link">
+            🛒 Cart
+        </a>
+
+        {% if customer %}
+
+        <a href="/customer-dashboard" class="account-link">
+            👤 {{ customer["name"] }}
+        </a>
+
+        {% else %}
+
+        <a href="/customer-login" class="account-link">
+            🔐 Login
+        </a>
+
+        {% endif %}
+
+    </div>
+
+</nav>
+
+<main class="container">
+
+    <section class="hero">
+
+        <div class="hero-content">
+
+            <div class="hero-badge">
+                🖨️ Reliable Office Solutions
+            </div>
+
+            <h1>
+                The right equipment for a
+                <span>better-running office.</span>
+            </h1>
+
+            <p>
+                Shop photocopiers, toner, spare parts, and office essentials
+                from one place — with delivery and support when you need it.
+            </p>
+
+            <div class="hero-actions">
+
+                <a href="#products" class="hero-button">
+                    Shop Products →
+                </a>
+
+                <a href="/support" class="hero-secondary">
+                    ✨ Get AI Support
+                </a>
+
+            </div>
+
+        </div>
+
+    </section>
+
+    <section class="trust-grid">
+
+        <div class="trust-card">
+            <div class="trust-icon">📦</div>
+            <div>
+                <strong>Office-ready products</strong>
+                <span>Equipment, toner & parts in one catalog.</span>
+            </div>
+        </div>
+
+        <div class="trust-card">
+            <div class="trust-icon">🚚</div>
+            <div>
+                <strong>Cebu delivery</strong>
+                <span>Choose your delivery location at checkout.</span>
+            </div>
+        </div>
+
+        <div class="trust-card">
+            <div class="trust-icon">🔧</div>
+            <div>
+                <strong>Repair support</strong>
+                <span>Book a repair when your equipment needs help.</span>
+            </div>
+        </div>
+
+    </section>
+
+    <section id="products">
+
+        <div class="section-heading">
+
+            <div>
+                <div class="eyebrow">Shop the catalog</div>
+                <h2>Our Products</h2>
+                <p>Find the equipment and supplies your office needs.</p>
+            </div>
+
+        </div>
+
+        <div class="browse-panel">
+
+            <div class="filter-row">
+
+                <div class="search-box">
+                    <input
+                        type="text"
+                        id="productSearch"
+                        placeholder="🔍 Search products or categories..."
+                        oninput="applyFilters()"
+                    >
+                </div>
+
+                <select
+                    id="priceFilter"
+                    class="price-filter"
+                    onchange="applyFilters()"
+                >
+                    <option value="all">💰 All Prices</option>
+                    <option value="0-1000">Under ₱1,000</option>
+                    <option value="1000-5000">₱1,000 – ₱5,000</option>
+                    <option value="5000-20000">₱5,000 – ₱20,000</option>
+                    <option value="20000+">₱20,000+</option>
+                </select>
+
+            </div>
+
+            <div class="category-buttons">
+                <button type="button" onclick="filterProducts('all', this)" class="category-btn active">All</button>
+                {% for category in categories %}
+                <button type="button" onclick='filterProducts({{ category.name|tojson }}, this)' class="category-btn">
+                    {{ category.icon or '📦' }} {{ category.name }}
+                </button>
+                {% endfor %}
+            </div>
+
+        </div>
+
+        <div class="products-grid" id="productsGrid">
+
+            {% for product in products %}
+
+            <article
+                class="product-card"
+                data-category="{{ product.category }}"
+                data-price="{{ product.base_price * (1 + product.markup / 100) }}"
+            >
+
+                <div class="product-media">
+
+                    {% if product.images %}
+
+                        {% set first_image = product.images.split(',')[0].strip() %}
+
+                        {% if first_image %}
+                            <img
+                                src="{{ url_for('static', filename='uploads/' + first_image) }}"
+                                alt="{{ product.name }}"
+                            >
+                        {% endif %}
+
+                    {% elif product.image %}
+
+                        <img
+                            src="{{ url_for('static', filename='uploads/' + product.image) }}"
+                            alt="{{ product.name }}"
+                        >
+
+                    {% else %}
+
+                        <div class="product-icon">
+
+                            {% if product.category == "Photocopier" %}
+                                📠
+                            {% elif product.category == "Toner" %}
+                                🖨️
+                            {% else %}
+                                ⚙️
+                            {% endif %}
+
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+                <div class="product-top">
+
+                    <div class="category">
+                        {{ product.category }}
+                    </div>
+
+                    {% if product.stock > 0 %}
+
+                        <span class="stock">
+                            ✓ {{ product.stock }} in stock
+                        </span>
+
+                    {% else %}
+
+                        <span class="stock out">
+                            Out of stock
+                        </span>
+
+                    {% endif %}
+
+                </div>
+
+                <h3>
+
+                    <a
+                        href="/product/{{ product.name }}"
+                        class="product-link"
+                    >
+                        {{ product.name }}
+                    </a>
+
+                </h3>
+
+                <p class="product-description">
+                    Quality {{ product.category|lower }} for office use.
+                </p>
+
+                <div class="price">
+                    ₱{{ "{:,.2f}".format(product.base_price * (1 + product.markup / 100)) }}
+                </div>
+
+                {% if product.stock > 0 %}
+
+                <div class="quantity-control">
+
+                    <button
+                        type="button"
+                        onclick="changeQuantity(this, -1)"
+                    >
+                        −
+                    </button>
+
+                    <span class="quantity-value">
+                        1
+                    </span>
+
+                    <button
+                        type="button"
+                        onclick="changeQuantity(this, 1)"
+                    >
+                        +
+                    </button>
+
+                </div>
+
+                <div class="product-actions">
+
+                    <form
+                        action="/add-to-cart"
+                        method="POST"
+                    >
+
+                        <input
+                            type="hidden"
+                            name="product"
+                            value="{{ product.name }}"
+                        >
+
+                        <input
+                            type="hidden"
+                            name="price"
+                            value="{{ product.base_price * (1 + product.markup / 100) }}"
+                        >
+
+                        <input
+                            type="hidden"
+                            name="quantity"
+                            value="1"
+                            class="quantity-input-hidden"
+                        >
+
+                        <button
+                            type="submit"
+                            class="add-cart"
+                        >
+                            🛒 Add to Cart
+                        </button>
+
+                    </form>
+
+                    <form
+                        action="/buy-now"
+                        method="POST"
+                    >
+
+                        <input
+                            type="hidden"
+                            name="product"
+                            value="{{ product.name }}"
+                        >
+
+                        <input
+                            type="hidden"
+                            name="price"
+                            value="{{ product.base_price * (1 + product.markup / 100) }}"
+                        >
+
+                        <input
+                            type="hidden"
+                            name="quantity"
+                            value="1"
+                            class="quantity-input-hidden"
+                        >
+
+                        <button
+                            type="submit"
+                            class="buy-now"
+                        >
+                            ⚡ Buy Now
+                        </button>
+
+                    </form>
+
+                </div>
+
+                {% else %}
+
+                    <button
+                        type="button"
+                        class="disabled-button"
+                        disabled
+                    >
+                        Currently unavailable
+                    </button>
+
+                {% endif %}
+
+            </article>
+
+            {% endfor %}
+
+            <div class="no-results" id="noResults">
+                <div style="font-size:32px;margin-bottom:8px;">🔎</div>
+                <strong>No products found</strong>
+                <p style="margin-top:4px;">
+                    Try a different search or filter.
+                </p>
+            </div>
+
+        </div>
+
+    </section>
+
+    <section class="services">
+
+        <div class="section-heading">
+
+            <div>
+                <div class="eyebrow">More than products</div>
+                <h2>Support for your office</h2>
+                <p>Get help before and after your purchase.</p>
+            </div>
+
+        </div>
+
+        <div class="service-grid">
+
+            <article class="service-card">
+
+                <div class="service-icon">
+                    🔧
+                </div>
+
+                <h3>Repair Services</h3>
+
+                <p>
+                    Having trouble with your copier or office equipment?
+                    Send a repair request and get support.
+                </p>
+
+                <a href="/repair" class="service-link">
+                    Request a repair →
+                </a>
+
+            </article>
+
+            <article class="service-card featured">
+
+                <div class="service-icon">
+                    ✨
+                </div>
+
+                <h3>AI Support</h3>
+
+                <p>
+                    Need help choosing equipment, troubleshooting a problem,
+                    or finding the right supply?
+                </p>
+
+                <a href="/support" class="service-link">
+                    Talk to AI Support →
+                </a>
+
+            </article>
+
+            <article class="service-card">
+
+                <div class="service-icon">
+                    📦
+                </div>
+
+                <h3>Easy Ordering</h3>
+
+                <p>
+                    Add products to your cart, choose delivery, and manage
+                    your orders from your customer account.
+                </p>
+
+                {% if customer %}
+
+                    <a href="/customer-dashboard" class="service-link">
+                        View my account →
+                    </a>
+
+                {% else %}
+
+                    <a href="/customer-login" class="service-link">
+                        Sign in to your account →
+                    </a>
+
+                {% endif %}
+
+            </article>
+
+        </div>
+
+    </section>
+
+    <footer>
+
+        <div>
+            © CopierStore — Office equipment & supplies.
+        </div>
+
+        <div>
+            Reliable products · Delivery · Repair support
+        </div>
+
+    </footer>
+
+</main>
+
+<a href="/support" class="ai-button">
+    ✨ AI Support
+</a>
+
+<script>
+
+    let selectedCategory = "all";
+
+    function applyFilters() {
+
+        const search =
+            document
+                .getElementById("productSearch")
+                .value
+                .toLowerCase()
+                .trim();
+
+        const priceFilter =
+            document.getElementById("priceFilter").value;
+
+        const cards =
+            document.querySelectorAll(".product-card");
+
+        let visibleCount = 0;
+
+        cards.forEach(card => {
+
+            const name =
+                card
+                    .querySelector("h3")
+                    .innerText
+                    .toLowerCase();
+
+            const category =
+                card.dataset.category.toLowerCase();
+
+            const price =
+                parseFloat(card.dataset.price);
+
+            const matchesSearch =
+                name.includes(search) ||
+                category.includes(search);
+
+            const matchesCategory =
+                selectedCategory === "all" ||
+                card.dataset.category === selectedCategory;
+
+            let matchesPrice = true;
+
+            if (priceFilter === "0-1000") {
+                matchesPrice = price < 1000;
+            } else if (priceFilter === "1000-5000") {
+                matchesPrice = price >= 1000 && price <= 5000;
+            } else if (priceFilter === "5000-20000") {
+                matchesPrice = price > 5000 && price <= 20000;
+            } else if (priceFilter === "20000+") {
+                matchesPrice = price > 20000;
+            }
+
+            const visible =
+                matchesSearch &&
+                matchesCategory &&
+                matchesPrice;
+
+            card.style.display =
+                visible ? "" : "none";
+
+            if (visible) {
+                visibleCount++;
+            }
+
+        });
+
+        document.getElementById("noResults").style.display =
+            visibleCount === 0 ? "block" : "none";
+    }
+
+    function filterProducts(category, button) {
+
+        selectedCategory = category;
+
+        document
+            .querySelectorAll(".category-btn")
+            .forEach(btn => {
+                btn.classList.remove("active");
+            });
+
+        button.classList.add("active");
+
+        applyFilters();
+    }
+
+    function changeQuantity(button, amount) {
+
+        const control =
+            button.parentElement;
+
+        const display =
+            control.querySelector(".quantity-value");
+
+        const card =
+            control.closest(".product-card");
+
+        const stockText =
+            card.querySelector(".stock");
+
+        let quantity =
+            parseInt(display.innerText);
+
+        quantity += amount;
+
+        let maxStock = 99;
+
+        if (stockText && !stockText.classList.contains("out")) {
+
+            const match =
+                stockText.innerText.match(/\d+/);
+
+            if (match) {
+                maxStock = parseInt(match[0]);
+            }
+
+        }
+
+        if (quantity < 1) {
+            quantity = 1;
+        }
+
+        if (quantity > maxStock) {
+            quantity = maxStock;
+        }
+
+        display.innerText = quantity;
+
+        card
+            .querySelectorAll(".quantity-input-hidden")
+            .forEach(input => {
+                input.value = quantity;
+            });
+    }
+
+</script>
+
+<div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px;">
+<a href="/terms" style="color:#64748b;">Terms & Conditions</a> · <a href="/privacy" style="color:#64748b;">Privacy Policy</a>
+</div>
+</body>
+</html>

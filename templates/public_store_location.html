@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CopierStore Location</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#0f172a;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.wrap{max-width:920px;margin:0 auto;padding:28px 16px 50px}.card{background:#fff;border:1px solid #e2e8f0;border-radius:20px;overflow:hidden;box-shadow:0 12px 35px rgba(15,23,42,.06)}.top{padding:24px}.eyebrow{font-size:10px;font-weight:900;letter-spacing:1.4px;text-transform:uppercase;color:#2563eb}.top h1{margin:5px 0 7px;font-size:30px}.muted{color:#64748b;font-size:13px;line-height:1.55}.address{margin-top:18px;padding:15px;border:1px solid #dbeafe;background:#f8fbff;border-radius:14px}.address strong{display:block;font-size:14px;margin-bottom:5px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}.btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 13px;border-radius:10px;text-decoration:none;font-size:12px;font-weight:900;border:1px solid #dbeafe;background:#eff6ff;color:#1d4ed8}.btn.primary{background:#2563eb;color:#fff;border-color:#2563eb}.map{width:100%;height:430px;border:0;display:block}.help{padding:18px 24px 23px;border-top:1px solid #e2e8f0}.help h2{font-size:15px;margin:0 0 7px}.help p{margin:0;color:#64748b;font-size:12px;line-height:1.55}@media(max-width:600px){.wrap{padding:14px 10px 30px}.top{padding:18px}.top h1{font-size:25px}.map{height:330px}.actions{display:grid}.btn{width:100%}}
+</style>
+</head>
+<body>
+<main class="wrap">
+<section class="card">
+  <div class="top">
+    <div class="eyebrow">CopierStore</div>
+    <h1>📍 Our Store Location</h1>
+    <div class="muted">Use this address as the <strong>origin/pickup location</strong> when checking a courier's shipping rate for your order.</div>
+    <div class="address" id="storeAddressText">
+      <strong>{{ store.store_name }}</strong>
+      {{ store.address }}<br>
+      {{ store.location }}<br>
+      <span style="color:#64748b;font-size:11px">GPS: {{ store.latitude }}, {{ store.longitude }}</span>
+    </div>
+    <div class="actions">
+      <button class="btn primary" type="button" onclick="copyAddress()">📋 Copy store address</button>
+      <a class="btn" target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps/search/?api=1&query={{ (store.latitude|string + ',' + store.longitude|string)|urlencode }}">🗺️ Open in Google Maps</a>
+    </div>
+  </div>
+  <iframe class="map" loading="lazy" title="CopierStore map" src="https://www.openstreetmap.org/export/embed.html?bbox={{ (store.longitude-0.006) }}%2C{{ (store.latitude-0.006) }}%2C{{ (store.longitude+0.006) }}%2C{{ (store.latitude+0.006) }}&layer=mapnik&marker={{ store.latitude }}%2C{{ store.longitude }}"></iframe>
+  <div class="help">
+    <h2>📦 Checking your courier fee</h2>
+    <p>Enter the CopierStore address above as your <strong>pickup/origin</strong>, then enter your own delivery address as the <strong>destination</strong> on the courier's official rate calculator. The amount shown by the courier is the courier's own rate; CopierStore does not invent or estimate it.</p>
+  </div>
+</section>
+</main>
+<script>
+async function copyAddress(){
+  const el=document.getElementById('storeAddressText');
+  const text=el.innerText.replace(/\nGPS:.*$/,'').trim();
+  try{await navigator.clipboard.writeText(text);alert('Store address copied!');}
+  catch(e){window.prompt('Copy the store address:',text);}
+}
+</script>
+</body>
+</html>

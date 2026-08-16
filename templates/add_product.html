@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Add Product - CopierStore</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f7fb;
+            color: #1f2937;
+        }
+
+        .navbar {
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 18px 7%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 23px;
+            font-weight: bold;
+        }
+
+        .logo span {
+            color: #2563eb;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: #374151;
+            background: #f3f4f6;
+            padding: 9px 14px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .nav-links a:hover {
+            background: #e5e7eb;
+        }
+
+        .container {
+            max-width: 750px;
+            margin: auto;
+            padding: 40px 20px;
+        }
+
+        .header {
+            margin-bottom: 22px;
+        }
+
+        .eyebrow {
+            color: #2563eb;
+            font-size: 12px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 7px;
+        }
+
+        .header h1 {
+            font-size: 30px;
+            margin-bottom: 6px;
+        }
+
+        .header p {
+            color: #6b7280;
+        }
+
+        .card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 28px;
+        }
+
+        .field {
+            margin-bottom: 20px;
+        }
+
+        .shipping-specs {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 18px;
+            margin: 4px 0 22px;
+        }
+
+        .shipping-title {
+            font-weight: 800;
+            margin-bottom: 5px;
+        }
+
+        .shipping-help {
+            color: #64748b;
+            font-size: 12px;
+            line-height: 1.5;
+            margin-bottom: 14px;
+        }
+
+        .shipping-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .shipping-grid .field { margin-bottom: 0; }
+        .compact label { font-size: 12px; }
+
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 7px;
+            font-size: 14px;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 15px;
+            background: white;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .price-preview {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 5px 0 22px;
+        }
+
+        .price-preview-label {
+            color: #6b7280;
+            font-size: 13px;
+            margin-bottom: 5px;
+        }
+
+        .price-preview-value {
+            color: #1d4ed8;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .stock-info {
+            background: #f9fafb;
+            border-radius: 10px;
+            padding: 12px;
+            margin-top: -8px;
+            margin-bottom: 20px;
+            color: #6b7280;
+            font-size: 13px;
+        }
+
+        .upload-box {
+            background: #f9fafb;
+            border: 1px dashed #cbd5e1;
+            border-radius: 12px;
+            padding: 18px;
+        }
+
+        .upload-box input {
+            border: none;
+            padding: 5px 0;
+            background: transparent;
+        }
+
+        .upload-help {
+            color: #6b7280;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+
+        .save-button {
+            width: 100%;
+            padding: 13px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 9px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .save-button:hover {
+            background: #1d4ed8;
+        }
+
+        .back {
+            display: block;
+            text-align: center;
+            margin-top: 18px;
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+
+            .navbar {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .shipping-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+        }
+
+    </style>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+</head>
+
+<body>
+
+
+    <nav class="navbar">
+
+        <div class="logo">
+            Copier<span>Store</span>
+        </div>
+
+        <div class="nav-links">
+
+            <a href="/admin">
+                📊 Dashboard
+            </a>
+
+            <a href="/admin/products">
+                📦 Products
+            </a>
+
+            <a href="/logout">
+                🔒 Logout
+            </a>
+
+        </div>
+
+    </nav>
+
+
+    <div class="container">
+
+        <div class="header">
+
+            <div class="eyebrow">
+                Product Management
+            </div>
+
+            <h1>
+                ➕ Add Product
+            </h1>
+
+            <p>
+                Add a new product to your CopierStore inventory.
+            </p>
+
+        </div>
+
+
+        <div class="card">
+
+            <form
+                action="/admin/products/add"
+                method="POST"
+                enctype="multipart/form-data"
+            >
+
+
+                <div class="field">
+
+                    <label>
+                        Product Name
+                    </label>
+
+                    <input
+                        type="text"
+                        name="name"
+                        placeholder="e.g. Canon ImageRunner"
+                        required
+                    >
+
+                </div>
+
+
+                <div class="field">
+
+                    <label>
+                        Category
+                    </label>
+
+                    <select name="category" required>
+                        <option value="">Select category</option>
+                        {% for category in categories %}
+                        <option value="{{ category.name }}">{{ category.icon or '📦' }} {{ category.name }}</option>
+                        {% endfor %}
+                    </select>
+
+                </div>
+
+
+                <div class="field">
+
+                    <label>
+                        Base Price
+                    </label>
+
+                    <input
+                        type="number"
+                        id="basePrice"
+                        name="base_price"
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0"
+                        oninput="calculatePrice()"
+                        required
+                    >
+
+                </div>
+
+
+                <div class="field">
+
+                    <label>
+                        Markup (%)
+                    </label>
+
+                    <input
+                        type="number"
+                        id="markup"
+                        name="markup"
+                        value="0"
+                        step="0.01"
+                        min="0"
+                        oninput="calculatePrice()"
+                    >
+
+                </div>
+
+
+                <div class="price-preview">
+
+                    <div class="price-preview-label">
+                        💰 Estimated Selling Price
+                    </div>
+
+                    <div
+                        class="price-preview-value"
+                        id="sellingPrice"
+                    >
+                        ₱0.00
+                    </div>
+
+                </div>
+
+
+                <div class="field">
+
+                    <label>
+                        Stock
+                    </label>
+
+                    <input
+                        type="number"
+                        name="stock"
+                        min="0"
+                        value="0"
+                        required
+                    >
+
+                </div>
+
+
+                <div class="stock-info">
+
+                    📦 Stock represents the number of units currently
+                    available for customers to purchase.
+
+                </div>
+
+
+                <div class="shipping-specs">
+                    <div class="shipping-title">🚚 Shipping & Package Details</div>
+                    <div class="shipping-help">Enter the packed item's approximate size. Weight is in kg; dimensions are in cm (L × W × H). These help choose a suitable courier vehicle for bulky copier orders.</div>
+                    <div class="shipping-grid">
+                        <div class="field compact">
+                            <label>Weight (kg)</label>
+                            <input type="number" name="weight_kg" value="0" min="0" max="100000" step="0.01" required>
+                        </div>
+                        <div class="field compact">
+                            <label>Length (cm)</label>
+                            <input type="number" name="length_cm" value="0" min="0" max="100000" step="0.1" required>
+                        </div>
+                        <div class="field compact">
+                            <label>Width (cm)</label>
+                            <input type="number" name="width_cm" value="0" min="0" max="100000" step="0.1" required>
+                        </div>
+                        <div class="field compact">
+                            <label>Height (cm)</label>
+                            <input type="number" name="height_cm" value="0" min="0" max="100000" step="0.1" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="field">
+
+                    <label>
+                        Description
+                    </label>
+
+                    <textarea
+                        name="description"
+                        placeholder="Describe the product, specifications, features, etc."
+                    ></textarea>
+
+                </div>
+
+
+                <div class="field">
+
+                    <label>
+                        Product Images
+                    </label>
+
+                    <div class="upload-box">
+
+                        <input
+                            type="file"
+                            name="images"
+                            accept="image/png,image/jpeg,image/webp"
+                            multiple
+                        >
+
+                        <p class="upload-help">
+                            PNG, JPG, or WEBP. You can select multiple images.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <button
+                    type="submit"
+                    class="save-button"
+                >
+                    ➕ Add Product
+                </button>
+
+            </form>
+
+
+            <a
+                href="/admin/products"
+                class="back"
+            >
+                ← Back to Products
+            </a>
+
+        </div>
+
+    </div>
+
+
+    <script>
+
+        function calculatePrice() {
+
+            const base =
+                parseFloat(
+                    document.getElementById("basePrice").value
+                ) || 0;
+
+            const markup =
+                parseFloat(
+                    document.getElementById("markup").value
+                ) || 0;
+
+            const finalPrice =
+                base * (1 + markup / 100);
+
+            document.getElementById("sellingPrice").innerText =
+                "₱" +
+                finalPrice.toLocaleString(
+                    "en-PH",
+                    {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    }
+                );
+
+        }
+
+        calculatePrice();
+
+    </script>
+
+</body>
+
+</html>

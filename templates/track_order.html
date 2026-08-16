@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Track Your Order</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f5f7fb;
+            color: #1f2937;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .tracking-card {
+            width: 100%;
+            max-width: 600px;
+            background: white;
+            padding: 35px;
+            border-radius: 16px;
+            border: 1px solid #e5e7eb;
+        }
+
+        h1 {
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #6b7280;
+            margin-bottom: 25px;
+        }
+
+        form {
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 15px;
+        }
+
+        button {
+            padding: 12px 18px;
+            border: none;
+            border-radius: 8px;
+            background: #2563eb;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        .order-info {
+            margin-top: 30px;
+            padding-top: 25px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 7px 12px;
+            border-radius: 20px;
+            background: #eff6ff;
+            color: #2563eb;
+            font-weight: bold;
+        }
+
+        .error {
+            margin-top: 20px;
+            padding: 12px;
+            background: #fee2e2;
+            color: #991b1b;
+            border-radius: 8px;
+        }
+
+        .back {
+            display: inline-block;
+            margin-top: 25px;
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+    </style>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+</head>
+
+<body>
+
+    <div class="tracking-card">
+
+        <h1>📦 Track Your Order</h1>
+
+        <p class="subtitle">
+            Log in to your customer account first, then enter your order number to check your order status.
+        </p>
+
+        <form action="/track-order" method="GET">
+
+            <input
+                type="number"
+                name="order_id"
+                placeholder="Order #"
+                required
+            >
+
+            <button type="submit">
+                Track Order
+            </button>
+
+        </form>
+
+        {% if error %}
+
+            <div class="error">
+                {{ error }}
+            </div>
+
+        {% endif %}
+
+        {% if order %}
+
+            <div class="order-info">
+
+                <h2>
+                    Order #{{ order.id }}
+                </h2>
+
+                <p>
+                    <strong>Customer:</strong>
+                    {{ order.customer_name }}
+                </p>
+
+                <p>
+                    <strong>Product:</strong>
+                    {{ order.product }}
+                </p>
+
+                <p>
+                    <strong>Quantity:</strong>
+                    {{ order.quantity }}
+                </p>
+
+                <p>
+                    <strong>Total:</strong>
+                    ₱{{ "{:,.2f}".format(order.total or 0) }}
+                </p>
+
+                <p>
+                    <strong>Status:</strong>
+
+                    <span class="status">
+                        {{ order.status }}
+                    </span>
+
+                </p>
+
+            </div>
+
+        {% endif %}
+
+        <a href="/" class="back">
+            ← Back to Store
+        </a>
+
+    </div>
+
+</body>
+
+</html>

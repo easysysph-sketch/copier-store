@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Repair Requests - CopierStore</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f7fb;
+            color: #1f2937;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            padding: 40px 20px;
+        }
+
+        .header {
+            margin-bottom: 25px;
+        }
+
+        .header h1 {
+            font-size: 30px;
+            margin-bottom: 6px;
+        }
+
+        .header p {
+            color: #6b7280;
+        }
+
+        .requests {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 25px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 850px;
+        }
+
+        th {
+            background: #f9fafb;
+            color: #6b7280;
+            font-size: 12px;
+            text-transform: uppercase;
+            text-align: left;
+            padding: 13px;
+        }
+
+        td {
+            padding: 15px 13px;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 14px;
+            vertical-align: top;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .request-id {
+            color: #2563eb;
+            font-weight: bold;
+        }
+
+        .problem {
+            max-width: 300px;
+            line-height: 1.5;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .photo-link {
+            color: #2563eb;
+            font-weight: bold;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .photo-link:hover {
+            text-decoration: underline;
+        }
+
+        .date {
+            white-space: nowrap;
+            font-weight: 600;
+        }
+
+        .back {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 11px 16px;
+            background: #2563eb;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .back:hover {
+            background: #1d4ed8;
+        }
+
+        .empty {
+            padding: 30px;
+            text-align: center;
+            color: #6b7280;
+        }
+
+        .request-link {
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .request-link:hover {
+            text-decoration: underline;
+        }
+
+        .status-form {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-form select {
+            padding: 8px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            background: white;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .status-form button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            background: #2563eb;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .status-form button:hover {
+            background: #1d4ed8;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }   
+
+        .status-inspection {
+            background: #ede9fe;
+            color: #6d28d9;
+        }
+
+        .status-repairing {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-ready {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+
+        .status-completed {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-cancelled {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+    </style>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <div class="header">
+
+            <h1>🔧 Repair Requests</h1>
+
+            <p>
+                Manage customer repair and maintenance requests.
+            </p>
+
+        </div>
+
+        <div class="requests">
+
+            {% if requests %}
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+                            <th>Request #</th>
+                            <th>Customer</th>
+                            <th>Phone</th>
+                            <th>Machine / Model</th>
+                            <th>Problem</th>
+                            <th>Service Date</th>
+                            <th>Status</th>
+                            <th>Photo</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        {% for request in requests %}
+
+                            <tr>
+
+                                <td class="request-id">
+                                    <a
+                                        href="/repair-tracking/{{ request.id }}"
+                                        class="request-link"
+                                    >
+                                        #{{ request.id }}
+                                    </a>
+                                </td>
+
+                                <td>
+                                    {{ request.customer_name }}
+                                </td>
+
+                                <td>
+                                    {{ request.phone }}
+                                </td>
+
+                                <td>
+                                    {{ request.machine }}
+                                </td>
+
+                                <td class="problem">
+                                    {{ request.problem }}
+                                </td>
+
+                                <td class="date">
+                                    {{ request.service_date }}
+                                </td>
+
+                                <td>
+
+                                    {% if request.status == "Pending" %}
+
+                                        <span class="status-badge status-pending">
+                                            🟡 Pending
+                                        </span>
+
+                                    {% elif request.status == "Inspection" %}
+
+                                        <span class="status-badge status-inspection">
+                                            🔍 Inspection
+                                        </span>
+
+                                    {% elif request.status == "Repairing" %}
+
+                                        <span class="status-badge status-repairing">
+                                            🔧 Repairing
+                                        </span>
+
+                                    {% elif request.status == "Ready for Delivery" %}
+
+                                        <span class="status-badge status-ready">
+                                            📦 Ready for Delivery
+                                        </span>
+ 
+                                        {% elif request.status == "Completed" %}
+
+                                        <span class="status-badge status-completed">
+                                            ✅ Completed
+                                        </span>
+
+                                    {% elif request.status == "Cancelled" %}
+
+                                        <span class="status-badge status-cancelled">
+                                            ❌ Cancelled
+                                        </span>
+
+                                    {% endif %}
+
+
+                                    <form
+                                        action="/update-repair-status/{{ request.id }}"
+                                        method="POST"
+                                        class="status-form"
+                                    >
+
+                                        <select name="status">
+
+                                        <option value="Pending"
+                                            {% if request.status == "Pending" %}selected{% endif %}>
+                                            Pending
+                                        </option>
+
+                                        <option value="Inspection"
+                                            {% if request.status == "Inspection" %}selected{% endif %}>
+                                            Inspection
+                                        </option>
+
+                                        <option value="Repairing"
+                                            {% if request.status == "Repairing" %}selected{% endif %}>
+                                            Repairing
+                                        </option>
+
+                                        <option value="Ready for Delivery"
+                                            {% if request.status == "Ready for Delivery" %}selected{% endif %}>
+                                            Ready for Delivery
+                                        </option>
+
+                                        <option value="Completed"
+                                            {% if request.status == "Completed" %}selected{% endif %}>
+                                            Completed
+                                        </option>
+
+                                        <option value="Cancelled"
+                                            {% if request.status == "Cancelled" %}selected{% endif %}>
+                                            Cancelled
+                                        </option>
+
+                                    </select>
+
+                                    <button type="submit">
+                                        Update
+                                    </button>
+
+                                </form>
+
+                            </td>
+
+                            <td>
+
+                                {% if request.photo_filename %}
+
+                                    <a
+                                        href="/repair-photo/{{ request.photo_filename }}"
+                                        target="_blank"
+                                        class="photo-link"
+                                    >
+                                        📷 View Photo
+                                    </a>
+
+                                {% else %}
+
+                                    <span style="color: #9ca3af;">
+                                        No photo
+                                    </span>
+
+                                {% endif %}
+
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+                </table>
+
+            {% else %}
+
+                <div class="empty">
+                    🔧 No repair requests yet.
+                </div>
+
+            {% endif %}
+
+        </div>
+
+        <a href="/admin" class="back">
+            ← Back to Dashboard
+        </a>
+
+    </div>
+
+</body>
+
+</html>

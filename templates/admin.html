@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | CopierStore</title>
+
+    <style>
+        :root {
+            --blue: #2563eb;
+            --blue-dark: #1d4ed8;
+            --navy: #0f172a;
+            --text: #1f2937;
+            --muted: #64748b;
+            --line: #e2e8f0;
+            --soft: #f8fafc;
+            --green: #16a34a;
+            --yellow: #d97706;
+            --red: #dc2626;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f7fb;
+            color: var(--text);
+        }
+
+        a {
+            text-decoration: none;
+        }
+
+        .app {
+            min-height: 100vh;
+            display: flex;
+        }
+
+        .sidebar {
+            width: 245px;
+            background: #fff;
+            border-right: 1px solid var(--line);
+            padding: 24px 15px;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            inset: 0 auto 0 0;
+            z-index: 30;
+        }
+
+        .brand {
+            padding: 0 12px 28px;
+            font-size: 23px;
+            font-weight: 900;
+            color: var(--navy);
+            letter-spacing: -.6px;
+        }
+
+        .brand span {
+            color: var(--blue);
+        }
+
+        .admin-label {
+            padding: 0 12px 9px;
+            color: #94a3b8;
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .nav {
+            display: grid;
+            gap: 4px;
+        }
+
+        .nav a {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 11px 12px;
+            border-radius: 10px;
+            color: #475569;
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .nav a:hover {
+            background: #f1f5f9;
+            color: var(--text);
+        }
+
+        .nav a.active {
+            background: #eff6ff;
+            color: var(--blue);
+        }
+
+        .nav-icon {
+            width: 21px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .sidebar-bottom {
+            margin-top: auto;
+            display: grid;
+            gap: 5px;
+        }
+
+        .sidebar-bottom a {
+            display: block;
+            padding: 10px 12px;
+            border-radius: 9px;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .sidebar-bottom a:hover {
+            background: #f8fafc;
+        }
+
+        .main {
+            width: calc(100% - 245px);
+            margin-left: 245px;
+            min-width: 0;
+        }
+
+        .topbar {
+            height: 72px;
+            background: rgba(255, 255, 255, .95);
+            border-bottom: 1px solid var(--line);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 34px;
+            position: sticky;
+            top: 0;
+            z-index: 20;
+        }
+
+        .topbar-title {
+            font-size: 14px;
+            font-weight: 900;
+            color: var(--navy);
+        }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .store-link {
+            padding: 9px 12px;
+            border: 1px solid var(--line);
+            border-radius: 9px;
+            color: #475569;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .store-link:hover {
+            border-color: #bfdbfe;
+            color: var(--blue);
+        }
+
+        .avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background: #eff6ff;
+            color: var(--blue);
+            font-size: 15px;
+            font-weight: 900;
+        }
+
+        .content {
+            width: min(1250px, calc(100% - 48px));
+            margin: auto;
+            padding: 34px 0 60px;
+        }
+
+        .welcome {
+            margin-bottom: 25px;
+        }
+
+        .eyebrow {
+            color: var(--blue);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 10px;
+            font-weight: 900;
+            margin-bottom: 6px;
+        }
+
+        .welcome h1 {
+            font-size: clamp(26px, 3vw, 34px);
+            letter-spacing: -.8px;
+        }
+
+        .welcome p {
+            color: var(--muted);
+            margin-top: 6px;
+            font-size: 13px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 22px;
+        }
+
+        .stat {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 10px 28px rgba(15, 23, 42, .035);
+        }
+
+        .stat-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .stat-label {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .stat-icon {
+            width: 36px;
+            height: 36px;
+            display: grid;
+            place-items: center;
+            border-radius: 10px;
+            background: #eff6ff;
+            font-size: 17px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 950;
+            color: var(--navy);
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 270px;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .panel {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: 0 10px 28px rgba(15, 23, 42, .035);
+        }
+
+        .panel-header {
+            padding: 20px 20px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .panel-header h2 {
+            font-size: 17px;
+        }
+
+        .panel-header p {
+            color: var(--muted);
+            font-size: 11px;
+            margin-top: 4px;
+        }
+
+        .view-all {
+            color: var(--blue);
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .orders-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 760px;
+        }
+
+        th {
+            padding: 13px 20px;
+            text-align: left;
+            background: #fafbfc;
+            color: #94a3b8;
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+
+        td {
+            padding: 15px 20px;
+            border-top: 1px solid #f1f5f9;
+            font-size: 13px;
+            vertical-align: middle;
+        }
+
+        tbody tr:hover {
+            background: #fafcff;
+        }
+
+        .order-link {
+            color: var(--blue);
+            font-weight: 900;
+        }
+
+        .order-link:hover {
+            text-decoration: underline;
+        }
+
+        .customer {
+            font-weight: 800;
+        }
+
+        .phone {
+            color: var(--muted);
+            font-size: 11px;
+            margin-top: 3px;
+        }
+
+        .amount {
+            font-weight: 900;
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 9px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-processing {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-completed {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-cancelled {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-form {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            margin-top: 8px;
+        }
+
+        .status-form select {
+            height: 31px;
+            min-width: 135px;
+            padding: 0 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 7px;
+            background: white;
+            font-size: 11px;
+        }
+
+        .status-form button {
+            height: 31px;
+            padding: 0 10px;
+            border: 0;
+            border-radius: 7px;
+            background: var(--blue);
+            color: white;
+            font-size: 10px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .status-form button:hover {
+            background: var(--blue-dark);
+        }
+
+        .quick-actions {
+            padding: 18px;
+        }
+
+        .quick-actions h2 {
+            font-size: 17px;
+            margin-bottom: 5px;
+        }
+
+        .quick-actions p {
+            color: var(--muted);
+            font-size: 11px;
+            margin-bottom: 15px;
+        }
+
+        .quick-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            margin-top: 8px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 850;
+        }
+
+        .quick-link:hover {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: var(--blue);
+        }
+
+        .quick-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            display: grid;
+            place-items: center;
+            background: #f1f5f9;
+        }
+
+        .empty {
+            padding: 35px 20px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        @media (max-width: 1050px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .quick-actions {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+
+            .quick-actions h2,
+            .quick-actions p {
+                grid-column: 1 / -1;
+            }
+        }
+
+        @media (max-width: 800px) {
+            .sidebar {
+                width: 68px;
+                padding: 18px 9px;
+            }
+
+            .brand {
+                padding: 0 0 24px;
+                text-align: center;
+                font-size: 0;
+            }
+
+            .brand:after {
+                content: "C";
+                font-size: 22px;
+                color: var(--blue);
+            }
+
+            .admin-label,
+            .nav a span:not(.nav-icon),
+            .sidebar-bottom a span {
+                display: none;
+            }
+
+            .nav a,
+            .sidebar-bottom a {
+                justify-content: center;
+                padding: 11px 5px;
+            }
+
+            .main {
+                width: calc(100% - 68px);
+                margin-left: 68px;
+            }
+
+            .topbar {
+                padding: 0 20px;
+            }
+
+            .content {
+                width: calc(100% - 30px);
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 560px) {
+            .topbar-title {
+                display: none;
+            }
+
+            .content {
+                padding-top: 25px;
+            }
+
+            .quick-actions {
+                grid-template-columns: 1fr;
+            }
+
+            .quick-actions h2,
+            .quick-actions p {
+                grid-column: auto;
+            }
+        }
+    
+        .admin-notif-wrap{position:relative}
+        .admin-notif-btn{position:relative;width:40px;height:40px;border:1px solid var(--line);background:#fff;border-radius:11px;cursor:pointer;font-size:18px}
+        .admin-notif-badge{position:absolute;right:-4px;top:-5px;min-width:18px;height:18px;border-radius:99px;background:#ef4444;color:#fff;font-size:9px;font-weight:900;display:grid;place-items:center;padding:0 4px}
+        .admin-notif-pop{display:none;position:absolute;right:0;top:48px;width:360px;background:#fff;border:1px solid var(--line);border-radius:15px;box-shadow:0 20px 50px rgba(15,23,42,.16);overflow:hidden;z-index:100}
+        .admin-notif-pop.show{display:block}.admin-notif-head{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+        .admin-notif-head strong{font-size:13px}.admin-notif-head a{font-size:10px;color:var(--blue);font-weight:900}
+        .admin-notif-item{display:block;padding:12px 16px;border-bottom:1px solid #f1f5f9;color:var(--text)}
+        .admin-notif-item.unread{background:#eff6ff}.admin-notif-item:hover{background:#f8fafc}
+        .admin-notif-item small{display:block;color:var(--muted);font-size:9px;margin-top:4px}
+        .attention{margin:0 0 20px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 8px 25px rgba(15,23,42,.025)}
+        .attention-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:13px}.attention-head h2{font-size:15px}.attention-head a{font-size:10px;color:var(--blue);font-weight:900}
+        .attention-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.attention-card{padding:13px;border:1px solid var(--line);border-radius:12px;background:#f8fafc}.attention-card strong{display:block;font-size:22px;color:var(--navy)}.attention-card span{font-size:10px;color:var(--muted);font-weight:800}
+        .mini-alerts{margin-top:15px;display:grid;gap:7px}.mini-alert{padding:10px 12px;border-radius:10px;background:#fff7ed;border:1px solid #fed7aa;font-size:11px;color:#9a3412}.mini-alert.critical{background:#fef2f2;border-color:#fecaca;color:#b91c1c}
+        .status-form{display:flex;gap:5px;align-items:center;flex-wrap:wrap}.status-form select{border:1px solid var(--line);border-radius:7px;padding:7px;font-size:10px}.status-form button{border:0;background:var(--blue);color:#fff;border-radius:7px;padding:7px 9px;font-size:10px;font-weight:900;cursor:pointer}.cancel-mini{background:#fee2e2!important;color:#b91c1c!important}
+        @media(max-width:900px){.attention-grid{grid-template-columns:repeat(2,1fr)}.admin-notif-pop{right:-60px}}
+
+        .security-nav-link { position:relative; }
+        .nav-new { margin-left:auto; padding:3px 6px; border-radius:999px; background:#ecfdf5; color:#047857; font-size:8px; font-weight:900; letter-spacing:.5px; }
+        .security-nav-link:hover { background:#ecfdf5 !important; color:#047857 !important; }
+        .security-quick { position:relative; border-color:#d1fae5; background:linear-gradient(135deg,#f0fdf4,#fff); }
+        .security-quick .quick-icon { background:#dcfce7 !important; }
+        .security-quick .quick-arrow { margin-left:auto; color:#059669; font-weight:900; }
+        @media(max-width:780px){ .nav-new{display:none;} }
+</style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+</head>
+
+<body>
+
+    <div class="app">
+
+        <aside class="sidebar">
+
+            <div class="brand">
+                Copier<span>Store</span>
+            </div>
+
+            <div class="admin-label">Management</div>
+
+            <nav class="nav">
+
+                <a href="/admin" class="active">
+                    <span class="nav-icon">📊</span>
+                    <span>Dashboard</span>
+                </a>
+
+                <a href="/admin/products">
+                    <span class="nav-icon">🛍️</span>
+                    <span>Products & Stock</span>
+                </a>
+            <a href="/admin/categories"><span class="nav-icon">🏷️</span> Categories</a>
+
+                <a href="/orders">
+                    <span class="nav-icon">📦</span>
+                    <span>Orders</span>
+                </a>
+
+                <a href="/repair-requests">
+                    <span class="nav-icon">🔧</span>
+                    <span>Repair Requests</span>
+                </a>
+
+                <a href="/admin/payment-settings">
+                    <span class="nav-icon">💳</span>
+                    <span>Payment Settings</span>
+                </a>
+
+                <a href="/admin/accounting">
+                    <span class="nav-icon">📒</span>
+                    <span>Bookkeeping</span>
+                </a>
+
+                <a href="/admin/store-settings">
+                    <span class="nav-icon">📍</span>
+                    <span>Store Location</span>
+                </a>
+
+                <a href="/admin/security" class="security-nav-link">
+                    <span class="nav-icon">🛡️</span>
+                    <span>Security Center</span>
+                    <span class="nav-new">SECURE</span>
+                </a>
+
+                <a href="/admin/automation">
+                    <span class="nav-icon">🤖</span>
+                    <span>AI Automation</span>
+                    <span class="nav-new">AUTO</span>
+                </a>
+
+            </nav>
+
+            <div class="sidebar-bottom">
+
+                <a href="/">
+                    <span>← Back to Store</span>
+                </a>
+
+                <a href="/logout">
+                    <span>🔒 Logout</span>
+                </a>
+
+            </div>
+
+        </aside>
+
+        <main class="main">
+
+            <header class="topbar">
+
+                <div class="topbar-title">
+                    CopierStore Administration
+                </div>
+
+                <div class="topbar-right">
+
+                    <div class="admin-notif-wrap">
+                        <button class="admin-notif-btn" id="adminNotifBtn" type="button" aria-label="Notifications">
+                            🔔
+                            {% if admin_unread_notifications %}
+                            <span class="admin-notif-badge">{{ admin_unread_notifications }}</span>
+                            {% endif %}
+                        </button>
+                        <div class="admin-notif-pop" id="adminNotifPop">
+                            <div class="admin-notif-head">
+                                <strong>Admin notifications</strong>
+                                <a href="/admin/notifications">View all</a>
+                            </div>
+                            {% for n in admin_notifications %}
+                            <a class="admin-notif-item {% if not n.is_read %}unread{% endif %}" href="/admin/notifications">
+                                {{ n.message }}
+                                <small>{{ n.created_at }}</small>
+                            </a>
+                            {% else %}
+                            <div style="padding:24px;text-align:center;color:#64748b;font-size:11px">You're all caught up ✨</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <a href="/admin/customer-messages" class="store-link">
+                        💬 Messages
+                    </a>
+
+                    <a href="/" class="store-link">
+                        View Store ↗
+                    </a>
+
+                    <div class="avatar">
+                        A
+                    </div>
+
+                </div>
+
+            </header>
+
+            <section class="content">
+
+                <div class="welcome">
+
+                    <div class="eyebrow">
+                        Overview
+                    </div>
+
+                    <h1>Dashboard</h1>
+
+                    <p>
+                        Manage your orders, customers, products, and store activity.
+                    </p>
+
+                </div>
+
+                <section class="stats">
+
+                    <div class="stat">
+
+                        <div class="stat-top">
+                            <span class="stat-label">
+                                Total Orders
+                            </span>
+
+                            <div class="stat-icon">
+                                📦
+                            </div>
+                        </div>
+
+                        <div class="stat-value">
+                            {{ total_orders }}
+                        </div>
+
+                    </div>
+
+                    <div class="stat">
+
+                        <div class="stat-top">
+                            <span class="stat-label">
+                                Total Sales
+                            </span>
+
+                            <div class="stat-icon">
+                                💰
+                            </div>
+                        </div>
+
+                        <div class="stat-value">
+                            ₱{{ "{:,.2f}".format(total_sales) }}
+                        </div>
+
+                    </div>
+
+                    <div class="stat">
+
+                        <div class="stat-top">
+                            <span class="stat-label">
+                                Customers
+                            </span>
+
+                            <div class="stat-icon">
+                                👥
+                            </div>
+                        </div>
+
+                        <div class="stat-value">
+                            {{ total_customers }}
+                        </div>
+
+                    </div>
+
+                </section>
+
+                <section class="attention">
+                    <div class="attention-head">
+                        <h2>⚡ Needs your attention</h2>
+                        <a href="/admin/notifications">Open notification center →</a>
+                    </div>
+                    <div class="attention-grid">
+                        <a href="/orders" class="attention-card">
+                            <strong>{{ pending_payments }}</strong>
+                            <span>Payment verifications</span>
+                        </a>
+                        <a href="/admin/products" class="attention-card">
+                            <strong>{{ low_stock_products }}</strong>
+                            <span>Low / out-of-stock products</span>
+                        </a>
+                        <a href="/orders?status=Cancelled" class="attention-card">
+                            <strong>{{ cancelled_orders }}</strong>
+                            <span>Cancelled orders</span>
+                        </a>
+                        <a href="/admin/customer-messages" class="attention-card">
+                            <strong>💬</strong>
+                            <span>Customer messages</span>
+                        </a>
+                    </div>
+                    {% if admin_notifications %}
+                    <div class="mini-alerts">
+                        {% for n in admin_notifications[:3] %}
+                        <div class="mini-alert {% if n.notification_type == 'critical' %}critical{% endif %}">
+                            {{ n.message }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </section>
+
+                <div class="dashboard-grid">
+
+                    <section class="panel">
+
+                        <div class="panel-header">
+
+                            <div>
+                                <h2>Recent Orders</h2>
+                                <p>Latest activity from your store.</p>
+                            </div>
+
+                            <a href="/orders" class="view-all">
+                                View all →
+                            </a>
+
+                        </div>
+
+                        {% if recent_orders %}
+
+                        <div class="orders-wrap">
+
+                            <table>
+
+                                <thead>
+                                    <tr>
+                                        <th>Order</th>
+                                        <th>Customer</th>
+                                        <th>Total</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+
+                                    {% for order in recent_orders %}
+
+                                    <tr>
+
+                                        <td>
+                                            <a href="/order/{{ order.id }}" class="order-link">
+                                                #{{ order.id }}
+                                            </a>
+                                        </td>
+
+                                        <td>
+                                            <div class="customer">
+                                                {{ order.customer_name }}
+                                            </div>
+
+                                            <div class="phone">
+                                                {{ order.phone }}
+                                            </div>
+                                        </td>
+
+                                        <td class="amount">
+                                            ₱{{ "{:,.2f}".format(order.total or 0) }}
+                                        </td>
+
+                                        <td>
+
+                                            {% if order.status == "Pending" %}
+
+                                            <span class="status status-pending">
+                                                🟡 Pending
+                                            </span>
+
+                                            {% elif order.status == "Processing" %}
+
+                                            <span class="status status-processing">
+                                                🔵 Processing
+                                            </span>
+
+                                            {% elif order.status == "Ready for Delivery" %}
+
+                                            <span class="status status-processing">
+                                                📦 Ready for Delivery
+                                            </span>
+
+                                            {% elif order.status == "Shipped" %}
+
+                                            <span class="status status-processing">
+                                                🚚 Shipped
+                                            </span>
+
+                                            {% elif order.status == "Delivered" %}
+
+                                            <span class="status status-completed">
+                                                🟢 Delivered
+                                            </span>
+
+                                            {% elif order.status == "Cancelled" %}
+
+                                            <span class="status status-cancelled">
+                                                🔴 Cancelled
+                                            </span>
+
+                                            {% endif %}
+
+                                            <form action="/update-status/{{ order.id }}" method="POST"
+                                                class="status-form">
+
+                                                <select name="status">
+
+                                                    <option value="Pending" {% if order.status=="Pending" %}selected{%
+                                                        endif %}>
+                                                        Pending
+                                                    </option>
+
+                                                    <option value="Processing" {% if order.status=="Processing"
+                                                        %}selected{% endif %}>
+                                                        Processing
+                                                    </option>
+
+                                                    <option value="Ready for Delivery" {% if
+                                                        order.status=="Ready for Delivery" %}selected{% endif %}>
+                                                        Ready for Delivery
+                                                    </option>
+
+                                                    <option value="Shipped" {% if order.status=="Shipped" %}selected{%
+                                                        endif %}>
+                                                        Shipped
+                                                    </option>
+
+                                                    <option value="Delivered" {% if order.status=="Delivered"
+                                                        %}selected{% endif %}>
+                                                        Delivered
+                                                    </option>
+
+                                                    <option value="Cancelled" {% if order.status=="Cancelled"
+                                                        %}selected{% endif %}>
+                                                        Cancelled
+                                                    </option>
+
+                                                </select>
+
+                                                <button type="submit" {% if order.status == "Cancelled" %}disabled{% endif %}>
+                                                    Update
+                                                </button>
+
+                                                {% if order.status != "Cancelled" %}
+                                                <button type="button" class="cancel-mini"
+                                                    onclick="openCancelModal({{ order.id }})">
+                                                    Cancel order
+                                                </button>
+                                                {% endif %}
+                                            </form>
+
+                                        </td>
+
+                                    </tr>
+
+                                    {% endfor %}
+
+                                </tbody>
+
+                            </table>
+
+                        </div>
+
+                        {% else %}
+
+                        <div class="empty">
+                            No orders yet.
+                        </div>
+
+                        {% endif %}
+
+                    </section>
+
+                    <aside class="panel quick-actions">
+
+                        <h2>Quick Actions</h2>
+
+                        <p>
+                            Jump straight into store management.
+                        </p>
+
+                        <a href="/admin/products" class="quick-link">
+                            <span class="quick-icon">🛍️</span>
+                            <span>Manage Products & Stock</span>
+                        </a>
+
+                        <a href="/orders" class="quick-link">
+                            <span class="quick-icon">📦</span>
+                            <span>View All Orders</span>
+                        </a>
+
+                        <a href="/repair-requests" class="quick-link">
+                            <span class="quick-icon">🔧</span>
+                            <span>Repair Requests</span>
+                        </a>
+
+                        <a href="/admin/security" class="quick-link security-quick">
+                            <span class="quick-icon">🛡️</span>
+                            <span>Security Center</span>
+                            <span class="quick-arrow">→</span>
+                        </a>
+
+                        <a href="/admin/automation" class="quick-link">
+                            <span class="quick-icon">🤖</span>
+                            <span>AI Automation Monitor</span>
+                            <span class="quick-arrow">→</span>
+                        </a>
+
+                        <a href="/" class="quick-link">
+                            <span class="quick-icon">🏪</span>
+                            <span>Open Storefront</span>
+                        </a>
+
+                    </aside>
+
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+    <div id="cancelModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:999;place-items:center;padding:20px;">
+        <div style="width:min(480px,100%);background:#fff;border-radius:18px;padding:22px;box-shadow:0 25px 70px rgba(15,23,42,.25);">
+            <h2 style="font-size:18px;margin-bottom:6px;">Cancel order <span id="cancelOrderLabel"></span></h2>
+            <p style="font-size:11px;color:#64748b;margin-bottom:14px;">Tell the customer why the order is being cancelled. This reason will be saved in the order history and sent to them.</p>
+            <form id="cancelForm" method="POST">
+                <input type="hidden" name="status" value="Cancelled">
+                <textarea id="cancelReason" name="cancellation_reason" required maxlength="500"
+                    placeholder="e.g. Payment could not be verified, item is unavailable, delivery address issue..."
+                    style="width:100%;min-height:120px;border:1px solid #dbe3ef;border-radius:12px;padding:12px;resize:vertical;outline:none;"></textarea>
+                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">
+                    <button type="button" onclick="closeCancelModal()" style="border:1px solid #dbe3ef;background:#fff;border-radius:9px;padding:9px 13px;font-weight:800;cursor:pointer;">Back</button>
+                    <button type="submit" style="border:0;background:#dc2626;color:#fff;border-radius:9px;padding:9px 13px;font-weight:900;cursor:pointer;">Confirm cancellation</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script>
+        const adminNotifBtn = document.getElementById("adminNotifBtn");
+        const adminNotifPop = document.getElementById("adminNotifPop");
+        if (adminNotifBtn) {
+            adminNotifBtn.addEventListener("click", () => adminNotifPop.classList.toggle("show"));
+            document.addEventListener("click", (e) => {
+                if (!e.target.closest(".admin-notif-wrap")) adminNotifPop.classList.remove("show");
+            });
+        }
+        function openCancelModal(orderId) {
+            document.getElementById("cancelOrderLabel").textContent = "#" + orderId;
+            document.getElementById("cancelForm").action = "/update-status/" + orderId;
+            document.getElementById("cancelModal").style.display = "grid";
+            document.getElementById("cancelReason").focus();
+        }
+        function closeCancelModal() {
+            document.getElementById("cancelModal").style.display = "none";
+            document.getElementById("cancelReason").value = "";
+        }
+        async function refreshAdminNotificationCount() {
+            try {
+                const response = await fetch("/admin/notifications/feed");
+                const data = await response.json();
+                if (!data.success) return;
+                const btn = document.getElementById("adminNotifBtn");
+                if (!btn) return;
+                let badge = btn.querySelector(".admin-notif-badge");
+                if (data.unread > 0) {
+                    if (!badge) {
+                        badge = document.createElement("span");
+                        badge.className = "admin-notif-badge";
+                        btn.appendChild(badge);
+                    }
+                    badge.textContent = data.unread > 99 ? "99+" : data.unread;
+                } else if (badge) {
+                    badge.remove();
+                }
+            } catch (error) {}
+        }
+        setInterval(refreshAdminNotificationCount, 10000);
+    </script>
+</body>
+
+</html>

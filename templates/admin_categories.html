@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Product Categories | CopierStore</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f5f7fb;color:#1f2937}.nav{background:#fff;border-bottom:1px solid #e5e7eb;padding:18px 6%;display:flex;justify-content:space-between;align-items:center}.logo{font-size:23px;font-weight:900}.logo span{color:#2563eb}.links{display:flex;gap:9px}.links a{padding:9px 13px;border-radius:8px;background:#f3f4f6;color:#374151;text-decoration:none;font-weight:700;font-size:13px}.wrap{max-width:1000px;margin:auto;padding:36px 20px}.head{margin-bottom:22px}.eyebrow{color:#2563eb;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase}.head h1{margin:7px 0;font-size:31px}.muted{color:#64748b}.grid{display:grid;grid-template-columns:330px 1fr;gap:20px}.card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:22px}.card h2{margin:0 0 16px;font-size:18px}label{display:block;font-size:13px;font-weight:800;margin:0 0 7px}input{width:100%;padding:12px;border:1px solid #d1d5db;border-radius:9px;margin-bottom:15px}button{width:100%;padding:12px;border:0;border-radius:9px;background:#2563eb;color:#fff;font-weight:800;cursor:pointer}.cat{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid #eef2f7}.cat:last-child{border-bottom:0}.catname{font-weight:800}.count{color:#64748b;font-size:12px;margin-left:6px}.delete{background:#fee2e2;color:#991b1b;padding:7px 10px;border-radius:7px;font-size:12px;font-weight:800}.flash{padding:11px 13px;border-radius:9px;background:#eff6ff;color:#1d4ed8;margin-bottom:12px;font-size:13px}@media(max-width:760px){.grid{grid-template-columns:1fr}.links{display:none}}
+</style>
+</head>
+<body>
+<nav class="nav"><div class="logo">Copier<span>Store</span></div><div class="links"><a href="/admin">📊 Dashboard</a><a href="/admin/products">📦 Products</a><a href="/logout">🔒 Logout</a></div></nav>
+<div class="wrap">
+<div class="head"><div class="eyebrow">Product Management</div><h1>🏷️ Product Categories</h1><p class="muted">Add your own categories for printers, Xerox machines, ink, office equipment, or anything else you sell.</p></div>
+{% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="flash">{{ message }}</div>{% endfor %}{% endwith %}
+<div class="grid">
+<div class="card"><h2>Add Custom Category</h2><form method="POST"><label>Category name</label><input name="name" maxlength="80" placeholder="e.g. Bond Paper" required><label>Icon / emoji</label><input name="icon" maxlength="8" value="📦" placeholder="📦"><button type="submit">＋ Add Category</button></form></div>
+<div class="card"><h2>Categories</h2>{% for category in categories %}<div class="cat"><div><span style="font-size:20px">{{ category.icon or '📦' }}</span> <span class="catname">{{ category.name }}</span><span class="count">{{ category.product_count }} product{% if category.product_count != 1 %}s{% endif %}</span></div>{% if category.product_count == 0 %}<form method="POST" action="/admin/categories/delete/{{ category.id }}" onsubmit="return confirm('Delete this category?')"><button class="delete" type="submit">Delete</button></form>{% else %}<span class="count">In use</span>{% endif %}</div>{% else %}<p class="muted">No categories yet.</p>{% endfor %}</div>
+</div></div>
+</body></html>

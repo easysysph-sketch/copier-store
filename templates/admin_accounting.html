@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bookkeeping | CopierStore</title>
+<style>
+:root{--blue:#2563eb;--navy:#0f172a;--text:#1f2937;--muted:#64748b;--line:#e2e8f0;--soft:#f8fafc;--green:#16a34a;--red:#dc2626;--amber:#d97706}
+*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:var(--text);font-family:Arial,sans-serif}.wrap{width:min(1250px,calc(100% - 32px));margin:auto;padding:28px 0 60px}.head{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;margin-bottom:22px}.eyebrow{font-size:11px;font-weight:900;color:var(--blue);letter-spacing:1px;text-transform:uppercase}.head h1{margin:4px 0;font-size:32px;color:var(--navy)}.head p{margin:0;color:var(--muted);font-size:13px}.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{border:1px solid var(--line);background:#fff;color:#334155;padding:10px 13px;border-radius:10px;font-weight:800;text-decoration:none;font-size:12px;cursor:pointer}.btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 3px 12px rgba(15,23,42,.04)}.label{font-size:11px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.5px}.value{font-size:25px;font-weight:900;color:var(--navy);margin-top:7px}.positive{color:var(--green)}.negative{color:var(--red)}.filters{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin:18px 0}.field{display:grid;gap:5px}.field label{font-size:11px;font-weight:800;color:#475569}.field input,.field select{border:1px solid var(--line);border-radius:9px;padding:10px;background:#fff;min-width:150px}.two{display:grid;grid-template-columns:1.3fr .7fr;gap:16px;margin-top:16px}.section-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.section-title h2{font-size:17px;margin:0;color:var(--navy)}table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid #eef2f7}th{font-size:10px;text-transform:uppercase;color:var(--muted);letter-spacing:.4px}td.num,th.num{text-align:right}.muted{color:var(--muted)}.expense-form{display:grid;grid-template-columns:1fr 1.5fr .8fr .9fr;gap:9px;align-items:end}.expense-form input,.expense-form select{width:100%;padding:10px;border:1px solid var(--line);border-radius:9px}.expense-form label{font-size:10px;font-weight:800;color:var(--muted);display:block;margin-bottom:4px}.small{font-size:11px;color:var(--muted)}.delete{border:0;background:none;color:var(--red);font-weight:800;cursor:pointer}.pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-size:10px;font-weight:900}.mobile-note{margin-top:14px;color:var(--muted);font-size:11px}@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}.head{align-items:flex-start;flex-direction:column}.expense-form{grid-template-columns:1fr 1fr}.card{overflow-x:auto}}@media(max-width:560px){.wrap{width:min(100% - 20px,1250px);padding-top:18px}.grid{grid-template-columns:1fr 1fr;gap:9px}.card{padding:13px;border-radius:13px}.value{font-size:20px}.expense-form{grid-template-columns:1fr}.filters .field,.filters .field input{width:100%}.actions,.actions .btn{width:100%}.actions .btn{text-align:center}.head h1{font-size:26px}table{min-width:680px}.table-scroll{overflow-x:auto}.two{gap:10px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="head">
+<div><div class="eyebrow">Finance & Bookkeeping</div><h1>📒 Accounting</h1><p>Track sales, delivery income, COGS, expenses, refunds and profit in one place.</p></div>
+<div class="actions"><a class="btn" href="/admin">← Dashboard</a><a class="btn primary" href="/admin/accounting/export?start_date={{ start_date }}&end_date={{ end_date }}">⬇ Export CSV</a></div>
+</header>
+<form class="filters" method="get">
+<div class="field"><label>From</label><input type="date" name="start_date" value="{{ start_date }}"></div>
+<div class="field"><label>To</label><input type="date" name="end_date" value="{{ end_date }}"></div>
+<button class="btn primary" type="submit">Apply period</button>
+</form>
+<section class="grid">
+<div class="card"><div class="label">Sales Revenue</div><div class="value">₱{{ "{:,.2f}".format(summary.sales) }}</div></div>
+<div class="card"><div class="label">Delivery Income</div><div class="value">₱{{ "{:,.2f}".format(summary.delivery_income) }}</div></div>
+<div class="card"><div class="label">COGS</div><div class="value">₱{{ "{:,.2f}".format(summary.cogs) }}</div></div>
+<div class="card"><div class="label">Operating Expenses</div><div class="value">₱{{ "{:,.2f}".format(summary.expenses) }}</div></div>
+<div class="card"><div class="label">Gross Profit</div><div class="value positive">₱{{ "{:,.2f}".format(summary.gross_profit) }}</div></div>
+<div class="card"><div class="label">Net Profit</div><div class="value {{ 'negative' if summary.net_profit < 0 else 'positive' }}">₱{{ "{:,.2f}".format(summary.net_profit) }}</div></div>
+<div class="card"><div class="label">Refunds / Credits</div><div class="value">₱{{ "{:,.2f}".format(summary.refunds) }}</div></div>
+<div class="card"><div class="label">Period</div><div class="value" style="font-size:14px">{{ start_date }} → {{ end_date }}</div></div>
+</section>
+<div class="two">
+<section class="card"><div class="section-title"><h2>📒 General Ledger</h2><span class="pill">Double-entry</span></div><div class="table-scroll"><table><thead><tr><th>Date</th><th>Description</th><th>Account</th><th class="num">Debit</th><th class="num">Credit</th></tr></thead><tbody>{% for row in ledger %}<tr><td>{{ row.transaction_date }}</td><td>{{ row.description }}</td><td>{{ row.account_name }}</td><td class="num">₱{{ "{:,.2f}".format(row.debit) }}</td><td class="num">₱{{ "{:,.2f}".format(row.credit) }}</td></tr>{% else %}<tr><td colspan="5" class="muted">No accounting entries for this period yet.</td></tr>{% endfor %}</tbody></table></div></section>
+<section class="card"><div class="section-title"><h2>📊 Account Balances</h2></div><div class="table-scroll"><table><thead><tr><th>Account</th><th class="num">Debit</th><th class="num">Credit</th></tr></thead><tbody>{% for row in balances %}<tr><td>{{ row.account_name }}</td><td class="num">₱{{ "{:,.2f}".format(row.debit) }}</td><td class="num">₱{{ "{:,.2f}".format(row.credit) }}</td></tr>{% else %}<tr><td colspan="3" class="muted">No balances yet.</td></tr>{% endfor %}</tbody></table></div></section>
+</div>
+<section class="card" style="margin-top:16px"><div class="section-title"><div><h2>🧾 Operating Expenses</h2><div class="small">Add rent, utilities, wages, supplies, delivery costs, marketing and other business expenses.</div></div></div>
+<form method="post" class="expense-form"><input type="hidden" name="action" value="add_expense"><div><label>Date</label><input type="date" name="expense_date" value="{{ end_date }}" required></div><div><label>Description</label><input name="description" maxlength="255" placeholder="e.g. Internet bill" required></div><div><label>Category</label><select name="category"><option>Rent</option><option>Utilities</option><option>Wages</option><option>Supplies</option><option>Delivery</option><option>Marketing</option><option>Repairs</option><option>Other</option></select></div><div><label>Amount</label><input type="number" name="amount" step="0.01" min="0" required></div><div><label>Payment</label><select name="payment_method"><option>Cash</option><option>GCash</option><option>Bank Transfer</option><option>Card</option></select></div><button class="btn primary" type="submit">＋ Add Expense</button></form>
+<div class="table-scroll" style="margin-top:18px"><table><thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Payment</th><th class="num">Amount</th><th></th></tr></thead><tbody>{% for row in expenses %}<tr><td>{{ row.expense_date }}</td><td>{{ row.category }}</td><td>{{ row.description }}</td><td>{{ row.payment_method }}</td><td class="num">₱{{ "{:,.2f}".format(row.amount) }}</td><td><form method="post" onsubmit="return confirm('Delete this expense?')"><input type="hidden" name="action" value="delete_expense"><input type="hidden" name="expense_id" value="{{ row.id }}"><button class="delete" type="submit">Delete</button></form></td></tr>{% else %}<tr><td colspan="6" class="muted">No expenses recorded for this period.</td></tr>{% endfor %}</tbody></table></div>
+<div class="mobile-note">This is a bookkeeping tool for store management. Use exported records with your accountant for formal tax/accounting filings.</div>
+</section>
+</div>
+</body>
+</html>

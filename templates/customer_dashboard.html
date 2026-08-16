@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>My Dashboard - CopierStore</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        :root {
+            --blue: #2563eb;
+            --blue-dark: #1d4ed8;
+            --navy: #0f172a;
+            --text: #1f2937;
+            --muted: #64748b;
+            --line: #e2e8f0;
+            --soft: #f8fafc;
+            --green: #16a34a;
+            --red: #dc2626;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f7fb;
+            color: var(--text);
+        }
+
+        a {
+            text-decoration: none;
+        }
+
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            background: rgba(255, 255, 255, .97);
+            padding: 14px 6%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: 950;
+            color: var(--navy);
+            letter-spacing: -.6px;
+        }
+
+        .logo span {
+            color: var(--blue);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 7px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: #475569;
+            font-weight: 800;
+            font-size: 11px;
+            padding: 9px 11px;
+            border-radius: 9px;
+        }
+
+        .nav-links a:hover {
+            background: #f1f5f9;
+        }
+
+        .logout {
+            background: #f1f5f9;
+        }
+
+        .notification-wrapper {
+            position: relative;
+        }
+
+        .notification-button {
+            position: relative;
+            border: none;
+            background: #f1f5f9;
+            font-size: 17px;
+            cursor: pointer;
+            padding: 8px 10px;
+            border-radius: 9px;
+        }
+
+        .notification-button:hover {
+            background: #e2e8f0;
+        }
+
+        .notification-count {
+            position: absolute;
+            top: -3px;
+            right: -3px;
+            min-width: 17px;
+            height: 17px;
+            padding: 2px 5px;
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            font-size: 9px;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .notification-dropdown {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 45px;
+            width: 350px;
+            max-height: 430px;
+            overflow-y: auto;
+            background: white;
+            border: 1px solid var(--line);
+            border-radius: 13px;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, .14);
+            z-index: 1000;
+        }
+
+        .notification-dropdown.show {
+            display: block;
+        }
+
+        .notification-title {
+            padding: 15px;
+            font-weight: 900;
+            font-size: 14px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .notification-item {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 13px 15px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .notification-item.unread {
+            background: #eff6ff;
+        }
+
+        .notification-item strong {
+            display: block;
+            font-size: 11px;
+        }
+
+        .notification-item small {
+            display: block;
+            margin-top: 5px;
+            color: var(--muted);
+            font-size: 10px;
+        }
+
+        .read-button {
+            border: none;
+            background: var(--blue);
+            color: white;
+            width: 27px;
+            height: 27px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .no-notifications {
+            padding: 25px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .container {
+            width: min(1120px, calc(100% - 30px));
+            margin: auto;
+            padding: 32px 0 60px;
+        }
+
+        .welcome {
+            display: flex;
+            justify-content: space-between;
+            align-items: end;
+            gap: 20px;
+            margin-bottom: 23px;
+        }
+
+        .welcome h1 {
+            font-size: clamp(27px, 4vw, 36px);
+            letter-spacing: -.9px;
+        }
+
+        .welcome p {
+            color: var(--muted);
+            font-size: 13px;
+            margin-top: 6px;
+        }
+
+        .welcome-badge {
+            background: #eff6ff;
+            color: #1d4ed8;
+            padding: 8px 11px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid var(--line);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card:after {
+            content: "";
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            right: -28px;
+            top: -30px;
+            background: #eff6ff;
+        }
+
+        .stat-icon {
+            width: 39px;
+            height: 39px;
+            display: grid;
+            place-items: center;
+            background: #eff6ff;
+            border-radius: 11px;
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+
+        .stat-card h3 {
+            color: var(--muted);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: .7px;
+            margin-bottom: 5px;
+        }
+
+        .stat-card p {
+            font-size: 27px;
+            font-weight: 950;
+            color: var(--navy);
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1.2fr .8fr;
+            gap: 18px;
+            align-items: start;
+        }
+
+        .section,
+        .card {
+            background: white;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 0;
+            box-shadow: 0 8px 25px rgba(15, 23, 42, .025);
+        }
+
+        .section h2,
+        .card h2 {
+            font-size: 17px;
+            margin-bottom: 16px;
+        }
+
+        .section-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 3px;
+        }
+
+        .section-head span {
+            color: var(--muted);
+            font-size: 9px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .7px;
+        }
+
+        .order {
+            padding: 15px 0;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .order:last-child {
+            border-bottom: none;
+        }
+
+        .order-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .order strong {
+            color: var(--blue);
+            font-size: 12px;
+        }
+
+        .order-total {
+            font-size: 13px;
+            font-weight: 900;
+            color: var(--navy);
+        }
+
+        .order-meta {
+            color: var(--muted);
+            font-size: 10px;
+            margin-top: 5px;
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 9px;
+            border-radius: 999px;
+            font-size: 9px;
+            font-weight: 900;
+            margin-top: 7px;
+        }
+
+        .pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .inspection {
+            background: #ede9fe;
+            color: #6d28d9;
+        }
+
+        .repairing {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .ready {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+
+        .progress {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .completed {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .cancelled {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .tracking-card {
+            margin-top: 12px;
+            padding: 14px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: var(--soft);
+        }
+
+        .tracking-label {
+            color: var(--muted);
+            font-size: 8px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .8px;
+            margin-bottom: 12px;
+        }
+
+        .tracking {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            position: relative;
+            gap: 5px;
+        }
+
+        .tracking:before {
+            content: "";
+            position: absolute;
+            left: 10%;
+            right: 10%;
+            top: 14px;
+            height: 2px;
+            background: #e2e8f0;
+            z-index: 0;
+        }
+
+        .track-step {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            min-width: 0;
+        }
+
+        .track-dot {
+            width: 29px;
+            height: 29px;
+            margin: 0 auto 6px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background: white;
+            border: 2px solid #cbd5e1;
+            color: #94a3b8;
+            font-size: 10px;
+            font-weight: 900;
+        }
+
+        .track-step.done .track-dot,
+        .track-step.current .track-dot {
+            border-color: var(--blue);
+            background: var(--blue);
+            color: white;
+        }
+
+        .track-step.cancelled .track-dot {
+            border-color: var(--red);
+            background: var(--red);
+            color: white;
+        }
+
+        .track-name {
+            color: var(--muted);
+            font-size: 8px;
+            line-height: 1.3;
+            font-weight: 800;
+        }
+
+        .track-step.done .track-name,
+        .track-step.current .track-name {
+            color: #1e40af;
+        }
+
+        .track-summary {
+            margin-top: 12px;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: center;
+            padding-top: 11px;
+            border-top: 1px solid var(--line);
+        }
+
+        .track-summary strong {
+            display: block;
+            font-size: 10px;
+        }
+
+        .track-summary span {
+            display: block;
+            color: var(--muted);
+            font-size: 9px;
+            margin-top: 3px;
+        }
+
+        .track-button {
+            display: inline-block;
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: var(--blue);
+            color: white !important;
+            font-size: 9px;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        .repair {
+            padding: 14px 0;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .repair:last-child {
+            border-bottom: none;
+        }
+
+        .repair a {
+            color: var(--blue);
+            font-size: 11px;
+            font-weight: 900;
+        }
+
+        .repair p {
+            margin-top: 6px;
+            font-size: 10px;
+        }
+
+        .repair .status {
+            margin-top: 8px;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .quick-action {
+            display: block;
+            padding: 12px;
+            border-radius: 10px;
+            background: #f8fafc;
+            border: 1px solid var(--line);
+            color: var(--navy);
+            font-size: 10px;
+            font-weight: 900;
+        }
+
+        .quick-action:hover {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+        }
+
+        .empty {
+            color: var(--muted);
+            font-size: 12px;
+            padding: 15px 0;
+        }
+
+        @media (max-width: 850px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .navbar {
+                padding: 13px 15px;
+            }
+
+            .nav-links a:not(.logout) {
+                display: none;
+            }
+
+            .container {
+                width: calc(100% - 20px);
+                padding-top: 24px;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+
+            .welcome {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .tracking {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+
+            .tracking:before {
+                left: 13px;
+                right: auto;
+                top: 14px;
+                bottom: 14px;
+                width: 2px;
+                height: auto;
+            }
+
+            .track-step {
+                display: grid;
+                grid-template-columns: 29px 1fr;
+                align-items: center;
+                text-align: left;
+                gap: 9px;
+            }
+
+            .track-dot {
+                margin: 0;
+            }
+
+            .track-summary {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .notification-dropdown {
+                width: min(330px, 90vw);
+            }
+        }
+
+        .danger-zone {
+            margin-top: 35px;
+            padding: 22px;
+            background: #fff7f7;
+            border: 1px solid #fecaca;
+            border-radius: 14px;
+
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .danger-zone h2 {
+            color: #b91c1c;
+            margin-bottom: 6px;
+        }
+
+        .danger-zone p {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .delete-account-btn {
+            background: #dc2626;
+            color: white;
+            border: none;
+            padding: 11px 16px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .delete-account-btn:hover {
+            background: #b91c1c;
+        }
+
+        @media (max-width: 600px) {
+
+            .danger-zone {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .delete-account-btn {
+                width: 100%;
+            }
+
+        }
+    </style>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+</head>
+
+<body>
+
+    <nav class="navbar">
+
+        <div class="logo">
+            Copier<span>Store</span>
+        </div>
+
+        <div class="nav-links">
+
+            <div class="notification-wrapper">
+
+                <button class="notification-button" onclick="toggleNotifications()">
+                    🔔
+
+                    {% set unread_count = notifications|selectattr("is_read", "equalto", 0)|list|length %}
+
+                    {% if unread_count > 0 %}
+                    <span class="notification-count">
+                        {{ unread_count }}
+                    </span>
+                    {% endif %}
+
+                </button>
+
+                <div id="notification-dropdown" class="notification-dropdown">
+
+                    <div class="notification-title">
+                        🔔 Notifications
+                    </div>
+
+                    {% if notifications %}
+
+                    {% for notification in notifications %}
+
+                    <div class="notification-item
+                                {% if notification.is_read == 0 %}unread{% endif %}">
+
+                        <div>
+                            <strong>
+                                {{ notification.message }}
+                            </strong>
+
+                            <small>
+                                {{ notification.created_at }}
+                            </small>
+                        </div>
+
+                        {% if notification.is_read == 0 %}
+
+                        <form action="/mark-notification-read/{{ notification.id }}" method="POST">
+                            <button class="read-button">
+                                ✓
+                            </button>
+                        </form>
+
+                        {% endif %}
+
+                    </div>
+
+                    {% endfor %}
+
+                    {% else %}
+
+                    <p class="no-notifications">
+                        No notifications yet.
+                    </p>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+            <a href="/">
+                Store
+            </a>
+
+            <a href="/support/live">
+                💬 Live Support
+            </a>
+
+            <a href="/customer-settings">
+                ⚙️ Settings
+            </a>
+
+            <a href="/customer-logout" class="logout">
+                Logout
+            </a>
+
+        </div>
+
+    </nav>
+
+    <div class="container">
+
+        <div class="welcome">
+
+            <div>
+                <div
+                    style="color:#2563eb;text-transform:uppercase;letter-spacing:1px;font-size:9px;font-weight:900;margin-bottom:6px;">
+                    Customer account
+                </div>
+
+                <h1>
+                    Welcome, {{ customer.name }} 👋
+                </h1>
+
+                <p>
+                    Manage your orders and repair requests.
+                </p>
+            </div>
+
+            <div class="welcome-badge">
+                ✨ CopierStore Customer
+            </div>
+
+        </div>
+
+
+
+        {% if default_address %}
+
+        <div class="card" style="margin-bottom:18px;">
+
+            <div class="section-head">
+                <h2>📍 Default Address</h2>
+                <a href="/customer-settings" style="color:#2563eb;font-size:11px;font-weight:900;">Manage</a>
+            </div>
+
+            <div style="margin-top:8px;line-height:1.6;font-size:12px;color:#64748b;">
+                <strong style="color:#1f2937;font-size:13px;">
+                    {% if default_address['label'] == 'Home' %}🏠{% elif default_address['label'] == 'Work' %}🏢{% else %}📍{% endif %}
+                    {{ default_address['label'] }}
+                </strong>
+                <br>
+                {{ default_address['recipient_name'] }} · {{ default_address['phone'] }}
+                <br>
+                {{ default_address['address'] }}
+                <br>
+                📍 {{ default_address['location'] }}
+            </div>
+
+        </div>
+
+        {% endif %}
+
+
+        <div class="stats">
+
+            <div class="stat-card">
+
+                <div class="stat-icon">📦</div>
+
+                <h3>My Orders</h3>
+
+                <p>
+                    {{ orders|length }}
+                </p>
+
+            </div>
+
+            <div class="stat-card">
+
+                <div class="stat-icon">🔧</div>
+
+                <h3>Repair Requests</h3>
+
+                <p>
+                    {{ repairs|length }}
+                </p>
+
+            </div>
+
+        </div>
+
+        <div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;">
+            <a href="/wishlist" class="marketplace-badge">❤️ Wishlist</a>
+            <a href="/customer-settings" class="marketplace-badge">📍 My Addresses</a>
+            <a href="/terms" class="marketplace-badge">📄 Store Policies</a>
+        </div>
+<div class="dashboard-grid"></div>
+
+        <div class="section">
+
+            <div class="section-head">
+                <h2>📦 Recent Orders</h2>
+                <span>Live status</span>
+            </div>
+
+            {% if orders %}
+
+            {% for order in orders %}
+
+            <div class="order">
+
+                <p>
+                    <a href="/customer-order/{{ order.id }}">
+                        <strong>
+                            Order #{{ order.id }}
+                        </strong>
+                    </a>
+                </p>
+
+                <p>
+                    Total:
+                    ₱{{ "{:,.2f}".format(order.total or 0) }}
+                </p>
+
+                <p>
+                    Status:
+
+                    {% if order.status == "Pending" %}
+                    <span class="status pending">🟡 Pending</span>
+
+                    {% elif order.status == "Processing" %}
+                    <span class="status progress">🔵 Processing</span>
+
+                    {% elif order.status == "Ready for Delivery" %}
+                    <span class="status ready">📦 Ready for Delivery</span>
+
+                    {% elif order.status == "Shipped" %}
+                    <span class="status progress">🚚 Shipped</span>
+
+                    {% elif order.status == "Delivered" %}
+                    <span class="status completed">🟢 Delivered</span>
+
+                    {% elif order.status == "Cancelled" %}
+                    <span class="status cancelled">🔴 Cancelled</span>
+
+                    {% endif %}
+                </p>
+
+                {% set status_steps = ["Pending", "Processing", "Ready for Delivery", "Shipped", "Delivered"] %}
+                {% set current_status = order.status %}
+
+                <div class="tracking-card">
+
+                    <div class="tracking-label">
+                        Order progress
+                    </div>
+
+                    {% if current_status == "Cancelled" %}
+
+                    <div class="tracking">
+                        <div class="track-step cancelled">
+                            <div class="track-dot">✕</div>
+                            <div class="track-name">Cancelled</div>
+                        </div>
+                    </div>
+
+                    <div class="track-summary">
+                        <div>
+                            <strong>Order cancelled</strong>
+                            <span>Your order will not continue through delivery.</span>
+                        </div>
+                        <a href="/customer-order/{{ order.id }}" class="track-button">
+                            View Order
+                        </a>
+                    </div>
+
+                    {% else %}
+
+                    <div class="tracking">
+
+                        {% for step in status_steps %}
+                        {% set step_index = loop.index0 %}
+                        {% set current_index = status_steps.index(current_status) if current_status in status_steps else
+                        0 %}
+
+                        <div class="track-step
+                                                {% if step_index < current_index %}done{% endif %}
+                                                {% if step_index == current_index %}current{% endif %}">
+                            <div class="track-dot">
+                                {% if step_index < current_index %} ✓ {% elif step_index==current_index %} ● {% else %}
+                                    {{ loop.index }} {% endif %} </div>
+
+                                    <div class="track-name">
+                                        {{ step }}
+                                    </div>
+                            </div>
+                            {% endfor %}
+
+                        </div>
+
+                        <div class="track-summary">
+                            <div>
+                                <strong>
+                                    {% if current_status == "Pending" %}
+                                    Order placed
+                                    {% elif current_status == "Processing" %}
+                                    We're preparing your order
+                                    {% elif current_status == "Ready for Delivery" %}
+                                    Your order is ready
+                                    {% elif current_status == "Shipped" %}
+                                    Your order is on the way
+                                    {% elif current_status == "Delivered" %}
+                                    Order delivered 🎉
+                                    {% else %}
+                                    {{ current_status }}
+                                    {% endif %}
+                                </strong>
+
+                                <span>
+                                    Current status: {{ current_status }}
+                                </span>
+                            </div>
+
+                            <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end;">
+                                {% if order.status in ['Pending', 'Processing'] %}
+                                <form action="/customer-order/{{ order.id }}/cancel" method="POST" onsubmit="return confirm('Cancel order #{{ order.id }}?');">
+                                    <button type="submit" class="track-button" style="border:none;background:#fee2e2;color:#991b1b !important;cursor:pointer;">Cancel</button>
+                                </form>
+                                {% endif %}
+                                <a href="/customer-order/{{ order.id }}" class="track-button">Track Order →</a>
+                            </div>
+                        </div>
+
+                        {% endif %}
+
+                    </div>
+
+                </div>
+
+                {% endfor %}
+
+                {% else %}
+
+                <p class="empty">
+                    You don't have any orders yet.
+                </p>
+
+                {% endif %}
+
+            </div>
+
+            <div class="card">
+
+                <h2>🔧 My Repair Requests</h2>
+
+                {% if repairs %}
+
+                {% for repair in repairs %}
+
+                <div style="
+                            padding: 18px 0;
+                            border-bottom: 1px solid #e5e7eb;
+                        ">
+
+                    <a href="{{ url_for('repair_tracking', request_id=repair.id) }}" style="
+                                    color: #2563eb;
+                                    font-weight: bold;
+                                    text-decoration: none;
+                                ">
+                        Repair #{{ repair.id }}
+                    </a>
+
+                    <p style="margin-top: 8px;">
+                        <strong>Machine:</strong>
+                        {{ repair.machine }}
+                    </p>
+
+                    <p style="margin-top: 5px;">
+                        <strong>Service Date:</strong>
+                        {{ repair.service_date }}
+                    </p>
+
+                    <p style="margin-top: 10px;">
+                        <strong>Status:</strong>
+
+                        {% if repair.status == "Pending" %}
+                        <span class="status pending">🟡 Pending</span>
+
+                        {% elif repair.status == "Inspection" %}
+                        <span class="status inspection">🔍 Inspection</span>
+
+                        {% elif repair.status == "Repairing" %}
+                        <span class="status repairing">🔧 Repairing</span>
+
+                        {% elif repair.status == "Ready for Delivery" %}
+                        <span class="status ready">📦 Ready for Delivery</span>
+
+                        {% elif repair.status == "Completed" %}
+                        <span class="status completed">🟢 Completed</span>
+
+                        {% elif repair.status == "Cancelled" %}
+                        <span class="status cancelled">🔴 Cancelled</span>
+
+                        {% endif %}
+                    </p>
+
+                </div>
+
+                {% endfor %}
+
+                {% else %}
+
+                <p class="empty">You don't have any repair requests yet.</p>
+
+                {% endif %}
+
+                <div class="quick-actions">
+                    <a href="/" class="quick-action">🛍️ Shop Products</a>
+                    <a href="/repair" class="quick-action">🔧 Request Repair</a>
+                    <a href="/cart" class="quick-action">🛒 View Cart</a>
+                    <a href="/customer-ai" class="quick-action">🤖 AI Assistant</a>
+                    <a href="/support" class="quick-action">💬 Live Support</a>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        function toggleNotifications() {
+            const dropdown = document.getElementById("notification-dropdown");
+
+            dropdown.classList.toggle("show");
+        }
+
+        document.addEventListener("click", function (event) {
+
+            const wrapper = document.querySelector(".notification-wrapper");
+            const dropdown = document.getElementById("notification-dropdown");
+
+            if (!wrapper.contains(event.target)) {
+                dropdown.classList.remove("show");
+            }
+
+        });
+    </script>
+
+<section class="section" style="margin-top:18px;">
+    <div class="section-head">
+        <h2>🕘 Recently Viewed</h2>
+        <span>Pick up where you left off</span>
+    </div>
+
+    {% if recently_viewed %}
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;">
+        {% for product in recently_viewed %}
+        <a href="/product/{{ product.name }}" style="text-decoration:none;color:inherit;border:1px solid #e5e7eb;border-radius:12px;padding:12px;background:#fff;">
+            <div style="height:110px;background:#f8fafc;border-radius:9px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+                {% if product.image %}
+                <img src="{{ url_for('static', filename='uploads/' + product.image) }}" alt="{{ product.name }}" style="width:100%;height:100%;object-fit:contain;">
+                {% else %}
+                <span style="font-size:32px;">🖨️</span>
+                {% endif %}
+            </div>
+            <strong style="display:block;margin-top:8px;font-size:13px;">{{ product.name }}</strong>
+            <span style="display:block;margin-top:4px;color:#2563eb;font-weight:900;font-size:13px;">
+                ₱{{ "{:,.2f}".format(product.base_price * (1 + product.markup / 100)) }}
+            </span>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p style="color:#64748b;">Products you view will appear here.</p>
+    {% endif %}
+</section>
+
+</body>
+
+</html>

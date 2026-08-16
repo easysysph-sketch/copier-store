@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Order Details</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+
+        select {
+            padding: 9px;
+            border: 1px solid #d1d5db;
+            border-radius: 7px;
+            margin-right: 8px;
+        }
+
+        button {
+            padding: 9px 14px;
+            border: none;
+            border-radius: 7px;
+            background: #2563eb;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f7fb;
+            color: #1f2937;
+        }
+
+        .container {
+            max-width: 850px;
+            margin: auto;
+            padding: 35px 20px;
+        }
+
+        .card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            margin-bottom: 8px;
+        }
+
+        .muted {
+            color: #6b7280;
+            margin-bottom: 25px;
+        }
+
+        .info {
+            line-height: 1.8;
+        }
+
+        .item {
+            padding: 15px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .item:last-child {
+            border-bottom: none;
+        }
+
+        .total {
+            font-size: 25px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+
+        .back {
+            display: inline-block;
+            padding: 11px 16px;
+            background: #2563eb;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>📦 Order #{{ order.id }}</h1>
+
+    <p class="muted">
+        Order details and customer information
+    </p>
+
+    <div class="card">
+
+        <h2>Customer Information</h2>
+
+        <div class="info">
+
+            <strong>Name:</strong>
+            {{ order.customer_name }}
+
+            <br>
+
+            <strong>Phone:</strong>
+            {{ order.phone }}
+
+            <br>
+
+            <strong>Address:</strong>
+            {{ order.address }}
+
+            <br>
+
+            <strong>Status:</strong>
+
+            {% if order.status == "Pending" %}
+                🟡 Pending
+            {% elif order.status == "Processing" %}
+                🔵 Processing
+            {% elif order.status == "Ready for Delivery" %}
+                📦 Ready for Delivery
+            {% elif order.status == "Shipped" %}
+                🚚 Shipped
+            {% elif order.status == "Delivered" %}
+                🟢 Delivered
+            {% elif order.status == "Cancelled" %}
+                🔴 Cancelled
+            {% else %}
+                {{ order.status }}
+            {% endif %}
+
+            {% if order.status == "Cancelled" %}
+            <div style="margin-top:12px;padding:12px;border-radius:10px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:12px;">
+                <strong>Cancellation reason:</strong><br>
+                {{ order.cancellation_reason or "No reason provided." }}
+                {% if order.cancelled_at %}<div style="margin-top:4px;font-size:10px;">{{ order.cancelled_at }}</div>{% endif %}
+            </div>
+            {% endif %}
+
+            <form action="/update-status/{{ order.id }}" method="POST" style="margin-top: 15px;" onsubmit="return handleOrderStatus(this)">
+                <input type="hidden" name="cancellation_reason" value="">
+
+                <select name="status">
+                    <option value="Pending" {% if order.status == "Pending" %}selected{% endif %}>Pending</option>
+                    <option value="Processing" {% if order.status == "Processing" %}selected{% endif %}>Processing</option>
+                    <option value="Ready for Delivery" {% if order.status == "Ready for Delivery" %}selected{% endif %}>Ready for Delivery</option>
+                    <option value="Shipped" {% if order.status == "Shipped" %}selected{% endif %}>Shipped</option>
+                    <option value="Delivered" {% if order.status == "Delivered" %}selected{% endif %}>Delivered</option>
+                    <option value="Cancelled" {% if order.status == "Cancelled" %}selected{% endif %}>Cancelled</option>
+                </select>
+
+                <button type="submit">
+                    Update Status
+                </button>
+
+            </form>
+
+        </div>
+
+    </div>
+
+    <div class="card">
+
+        <h2>🚚 Delivery &amp; Tracking</h2>
+        <p><strong>Method:</strong> {{ order.delivery_provider or "Standard Delivery" }}{% if order.delivery_provider == "Standard Delivery" %} <span style="color:#6b7280;">(Store Delivery)</span>{% endif %}</p>
+        <p style="margin-top:8px;"><strong>Delivery status:</strong> {{ order.delivery_status or "Not Booked" }}</p>
+        {% if order.manual_courier_name %}
+            <p style="margin-top:8px;"><strong>Courier:</strong> {{ order.manual_courier_name }}</p>
+        {% endif %}
+        {% if order.manual_tracking_number %}
+            <p style="margin-top:8px;"><strong>Tracking number:</strong> {{ order.manual_tracking_number }}</p>
+        {% endif %}
+        {% if order.manual_tracking_url %}
+            <p style="margin-top:8px;"><a href="{{ order.manual_tracking_url }}" target="_blank" rel="noopener" style="color:#2563eb;font-weight:bold;">🔗 Open tracking link</a></p>
+        {% endif %}
+
+        {% if order.actual_courier_fee is not none %}
+            <div style="margin-top:10px;padding:12px;border-radius:11px;background:#f8fafc;border:1px solid #e2e8f0;font-size:12px;">
+                <strong>Courier fee reconciliation</strong><br>
+                Estimated: ₱{{ "{:,.2f}".format(order.delivery_fee or 0) }} · Actual: ₱{{ "{:,.2f}".format(order.actual_courier_fee or 0) }}
+                {% if (order.courier_fee_difference or 0) > 0.009 %}
+                    <div style="margin-top:5px;color:#166534;font-weight:800;">₱{{ "{:,.2f}".format(order.courier_fee_difference) }} excess → refund/credit review</div>
+                {% elif (order.courier_fee_difference or 0) < -0.009 %}
+                    <div style="margin-top:5px;color:#9a3412;font-weight:800;">₱{{ "{:,.2f}".format(-(order.courier_fee_difference or 0)) }} additional cost → admin review</div>
+                {% else %}
+                    <div style="margin-top:5px;color:#166534;font-weight:800;">Fee matched</div>
+                {% endif %}
+                <div style="margin-top:4px;color:#64748b;">Status: {{ order.courier_fee_adjustment_status or 'Pending Review' }}</div>
+            </div>
+        {% endif %}
+
+        {% if session.get('admin_logged_in') and order.delivery_provider == 'Manual Courier' %}
+        <form action="/admin/order/{{ order.id }}/delivery-details" method="POST" style="margin-top:15px;display:grid;gap:9px;">
+            <input type="text" name="manual_courier_name" value="{{ order.manual_courier_name or '' }}" placeholder="Courier name (e.g. J&amp;T Express)">
+            <input type="text" name="manual_tracking_number" value="{{ order.manual_tracking_number or '' }}" placeholder="Tracking / waybill number">
+            <input type="url" name="manual_tracking_url" value="{{ order.manual_tracking_url or '' }}" placeholder="Tracking link (optional)">
+            <div style="padding:12px;border:1px solid #e5e7eb;border-radius:12px;background:#f8fafc;">
+                <div style="font-size:12px;color:#64748b;">Estimated courier fee</div>
+                <strong style="font-size:18px;">₱{{ "{:,.2f}".format(order.delivery_fee or 0) }}</strong>
+                <div style="font-size:11px;color:#64748b;margin-top:3px;">This is the amount shown to the customer before checkout.</div>
+            </div>
+            <input type="number" name="actual_courier_fee" value="{{ order.actual_courier_fee if order.actual_courier_fee is not none else '' }}" min="0" step="0.01" placeholder="Actual courier fee (optional)">
+            <select name="courier_fee_adjustment_status">
+                {% for s in ['Pending Review','Matched','Refund/Credit Pending','Refund/Credit Completed','Additional Payment Review'] %}
+                <option value="{{ s }}" {% if (order.courier_fee_adjustment_status or 'Pending Review') == s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+            <textarea name="courier_fee_adjustment_note" rows="2" placeholder="Refund/credit note (optional)" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:10px;">{{ order.courier_fee_adjustment_note or '' }}</textarea>
+            <select name="delivery_status">
+                {% for s in ['Awaiting Manual Courier Assignment','Courier Assigned','Picked Up','In Transit','Out for Delivery','Delivered'] %}
+                <option value="{{ s }}" {% if (order.delivery_status or '') == s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">💾 Save Courier &amp; Tracking</button>
+        </form>
+        {% endif %}
+
+    </div>
+
+    <div class="card">
+
+        <h2>💳 Payment</h2>
+
+        <p><strong>Method:</strong> {{ order.payment_method or "Not specified" }}</p>
+        <p style="margin-top:8px;"><strong>Status:</strong> {{ order.payment_status or "Not specified" }}</p>
+
+        {% if order.payment_reference %}
+            <p style="margin-top:8px;"><strong>Reference:</strong> {{ order.payment_reference }}</p>
+        {% endif %}
+
+        {% if order.payment_receipt %}
+            <p style="margin-top:12px;">
+                <a href="/admin/payment-receipt/{{ order.payment_receipt }}" target="_blank" style="color:#2563eb;font-weight:bold;">
+                    🧾 View Payment Receipt
+                </a>
+            </p>
+        {% endif %}
+
+        {% if order.payment_status == "Pending Verification" %}
+            <div style="display:flex;gap:8px;margin-top:15px;flex-wrap:wrap;">
+                <form action="/admin/payment/{{ order.id }}/confirm" method="POST">
+                    <button type="submit" style="background:#16a34a;">✓ Confirm Payment</button>
+                </form>
+                <form action="/admin/payment/{{ order.id }}/reject" method="POST">
+                    <button type="submit" style="background:#dc2626;">✕ Reject Payment</button>
+                </form>
+            </div>
+        {% endif %}
+
+    </div>
+
+    <div class="card">
+
+        <h2>Products</h2>
+
+        {% for item in items %}
+
+            <div class="item">
+
+                <strong>{{ item.product }}</strong>
+
+                <br>
+
+                Quantity: {{ item.quantity }}
+
+                <br>
+
+                Price:
+                ₱{{ "{:,.2f}".format(item.price) }}
+
+                <br>
+
+                Subtotal:
+                ₱{{ "{:,.2f}".format(item.subtotal) }}
+
+            </div>
+
+        {% endfor %}
+
+        <p>
+            Delivery Fee:
+            ₱{{ "{:,.2f}".format(order.delivery_fee or 0) }}
+        </p>
+
+        <p class="total">
+            Total:
+            ₱{{ "{:,.2f}".format(order.total or 0) }}
+        </p>
+
+    </div>
+
+    <a href="/admin" class="back">
+        ← Back to Dashboard
+    </a>
+
+</div>
+
+<script>
+function handleOrderStatus(form){
+    const select=form.querySelector('select[name="status"]');
+    if(select.value==="Cancelled"){
+        const reason=prompt("Why is Order #{{ order.id }} being cancelled? This reason will be sent to the customer.");
+        if(!reason || !reason.trim()){ return false; }
+        form.querySelector('input[name="cancellation_reason"]').value=reason.trim().slice(0,500);
+    }
+    return true;
+}
+</script>
+</body>
+</html>

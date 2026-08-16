@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Notifications - CopierStore</title>
+<style>
+body{font-family:Inter,Arial,sans-serif;background:#f5f7fb;color:#172033;margin:0}.wrap{width:min(900px,calc(100% - 30px));margin:auto;padding:35px 0 60px}
+.nav{background:#fff;border-bottom:1px solid #e2e8f0;padding:14px 6%;display:flex;justify-content:space-between;align-items:center}.logo{font-size:22px;font-weight:900}.logo span{color:#2563eb}.nav a{color:#475569;text-decoration:none;font-weight:800;font-size:12px}
+.head{display:flex;justify-content:space-between;align-items:end;margin-bottom:20px}.head h1{margin:0;font-size:30px}.head p{color:#64748b;font-size:12px}.readall{border:0;background:#2563eb;color:#fff;padding:9px 12px;border-radius:9px;font-weight:850;cursor:pointer}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden}.item{display:flex;gap:12px;padding:16px;border-bottom:1px solid #eef2f7;align-items:flex-start}.item:last-child{border:0}.item.unread{background:#eff6ff}.dot{width:9px;height:9px;border-radius:50%;background:#2563eb;margin-top:5px;flex:0 0 auto}.dot.critical{background:#dc2626}.dot.warning{background:#d97706}.dot.message{background:#7c3aed}.msg{flex:1;font-size:13px}.time{font-size:10px;color:#94a3b8;margin-top:5px}.mark{border:1px solid #dbe3ef;background:#fff;color:#2563eb;border-radius:8px;padding:6px 8px;font-size:10px;font-weight:850;cursor:pointer}.empty{text-align:center;padding:55px;color:#64748b}
+</style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+</head>
+<body>
+<nav class="nav"><div class="logo">Copier<span>Store</span> Admin</div><div><a href="/admin">Dashboard</a> &nbsp;·&nbsp; <a href="/admin/messages">Messages</a> &nbsp;·&nbsp; <a href="/logout">Logout</a></div></nav>
+<main class="wrap">
+<div class="head"><div><h1>🔔 Notifications</h1><p>Inventory, payments, orders, and customer activity.</p></div>
+{% if unread_count %}<form method="POST" action="/admin/notifications/read-all"><button class="readall">Mark all as read</button></form>{% endif %}</div>
+<div class="card">
+{% for n in notifications %}
+<div class="item {% if not n.is_read %}unread{% endif %}">
+<span class="dot {{ n.notification_type }}"></span>
+<div class="msg">{{ n.message }}<div class="time">{{ n.created_at }}</div></div>
+{% if not n.is_read %}<form method="POST" action="/admin/notifications/read/{{ n.id }}"><button class="mark">Read</button></form>{% endif %}
+</div>
+{% else %}<div class="empty">✨ No admin notifications yet.</div>{% endfor %}
+</div>
+</main>
+</body>
+</html>

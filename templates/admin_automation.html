@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Automation | CopierStore Admin</title>
+<style>
+:root{--blue:#2563eb;--navy:#0f172a;--text:#1f2937;--muted:#64748b;--line:#e2e8f0;--soft:#f8fafc;--green:#16a34a;--yellow:#d97706;--red:#dc2626}*{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:#f5f7fb;color:var(--text)}.wrap{max-width:1180px;margin:auto;padding:32px 20px}.head{display:flex;justify-content:space-between;gap:20px;align-items:center;margin-bottom:26px}.eyebrow{font-size:12px;font-weight:900;color:var(--blue);text-transform:uppercase;letter-spacing:1px}.title{font-size:30px;font-weight:900;color:var(--navy);margin:6px 0}.sub{color:var(--muted);font-size:14px}.btn{border:1px solid var(--line);background:white;padding:10px 14px;border-radius:10px;color:var(--navy);font-weight:800;text-decoration:none}.grid{display:grid;grid-template-columns:1.35fr .65fr;gap:18px}.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:0 8px 25px rgba(15,23,42,.04)}.card h2{margin:0 0 5px;font-size:18px}.muted{color:var(--muted);font-size:13px}.status{display:inline-flex;align-items:center;gap:7px;margin-top:14px;padding:8px 11px;border-radius:999px;background:#ecfdf5;color:#166534;font-size:12px;font-weight:900}.dot{width:8px;height:8px;background:#22c55e;border-radius:50%}.alert{padding:14px;border:1px solid var(--line);border-radius:13px;margin-top:12px;background:var(--soft)}.alert.critical{border-color:#fecaca;background:#fff7f7}.alert.warning{border-color:#fde68a;background:#fffbeb}.tag{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.7px}.critical .tag{color:var(--red)}.warning .tag{color:var(--yellow)}.msg{font-weight:800;margin-top:5px;line-height:1.45}.time{font-size:11px;color:var(--muted);margin-top:7px}.empty{padding:30px 10px;text-align:center;color:var(--muted)}.run{padding:12px 0;border-bottom:1px solid var(--line);font-size:13px;line-height:1.45}.run:last-child{border-bottom:0}.run strong{display:block;color:var(--navy);margin-bottom:4px}@media(max-width:800px){.grid{grid-template-columns:1fr}.head{align-items:flex-start;flex-direction:column}.title{font-size:24px}.wrap{padding:20px 14px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div><div class="eyebrow">CopierStore Intelligence</div><div class="title">🤖 AI Automation Monitor</div><div class="sub">The system checks your store automatically in the background and warns you when something needs attention.</div><div class="status"><span class="dot"></span> Automatic monitoring active</div></div>
+    <a class="btn" href="/admin">← Dashboard</a>
+  </div>
+  <div class="grid">
+    <section class="card"><h2>⚡ Active Warnings</h2><div class="muted">Alerts are generated automatically. No manual checking required.</div>
+      {% if active_alerts %}
+        {% for a in active_alerts %}<div class="alert {{ a['severity'] }}"><div class="tag">{{ a['severity'] }}</div><div class="msg">{{ a['message'] }}</div><div class="time">Last detected: {{ a['last_seen'] }}</div></div>{% endfor %}
+      {% else %}<div class="empty">🟢 No active issues detected right now.</div>{% endif %}
+    </section>
+    <section class="card"><h2>🧠 How it works</h2><div class="muted">The monitor runs about every minute and checks:</div>
+      <div class="alert"><div class="msg">📦 Inventory risk</div><div class="muted">Low/out-of-stock products</div></div>
+      <div class="alert"><div class="msg">💳 Payment delays</div><div class="muted">Pending verification that needs attention</div></div>
+      <div class="alert"><div class="msg">🛒 Stale orders</div><div class="muted">Orders waiting too long</div></div>
+      <div class="alert"><div class="msg">💬 Customer support</div><div class="muted">Unread customer messages</div></div>
+      <div class="alert"><div class="msg">🤖 Optional AI summary</div><div class="muted">If Gemini is configured, it summarizes detected signals without modifying data.</div></div>
+    </section>
+  </div>
+  <section class="card" style="margin-top:18px"><h2>🕐 Automation History</h2><div class="muted">Recent automatic checks.</div>{% for run in runs %}<div class="run"><strong>{{ run['created_at'] }} · {{ run['run_type']|replace('_',' ')|title }}</strong>{{ run['summary'] }}</div>{% else %}<div class="empty">No checks recorded yet.</div>{% endfor %}</section>
+</div>
+</body>
+</html>

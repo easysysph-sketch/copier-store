@@ -1,0 +1,197 @@
+/* CopierStore — mobile-first responsive polish (UI only) */
+@media (max-width: 768px) {
+  html, body { width:100%; max-width:100%; overflow-x:hidden; }
+  img, video, iframe { max-width:100%; height:auto; }
+  input, select, textarea, button { max-width:100%; }
+
+  /* Shared storefront navigation */
+  .navbar { min-height:58px !important; padding:10px 14px !important; gap:10px !important; }
+  .logo { font-size:20px !important; white-space:nowrap; }
+  .nav-links { min-width:0; max-width:100%; overflow-x:auto; scrollbar-width:none; gap:3px !important; white-space:nowrap; }
+  .nav-links::-webkit-scrollbar { display:none; }
+  .nav-links > a, .nav-links a { font-size:11px !important; padding:8px 8px !important; flex:0 0 auto; }
+  .cart-link, .cart-nav { padding:9px 11px !important; }
+  .menu-toggle { display:block !important; flex:0 0 auto; }
+  .container { width:calc(100% - 20px) !important; padding:22px 0 45px !important; }
+
+  /* Storefront cards / grids */
+  .hero { min-height:360px !important; padding:32px 22px !important; border-radius:18px !important; margin-bottom:30px !important; }
+  .hero h1 { font-size:clamp(32px, 10vw, 46px) !important; letter-spacing:-1.5px !important; }
+  .hero p { font-size:14px !important; }
+  .hero-actions { gap:8px !important; }
+  .hero-button, .hero-secondary { padding:11px 14px !important; }
+  .trust-grid, .feature-grid, .stats-grid { grid-template-columns:1fr !important; }
+  .product-grid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:10px !important; }
+  .product-card { min-width:0 !important; }
+  .product-card img { width:100% !important; height:auto !important; object-fit:contain; }
+  .product-actions, .card-actions { flex-wrap:wrap !important; }
+  .product-actions > *, .card-actions > * { flex:1 1 100% !important; }
+  .category-buttons { overflow-x:auto; flex-wrap:nowrap !important; padding-bottom:3px; scrollbar-width:none; }
+  .category-buttons::-webkit-scrollbar { display:none; }
+  .category-btn { flex:0 0 auto; }
+
+  /* Forms */
+  form { max-width:100%; }
+  .form-row, .form-grid, .two-column, .two-col { grid-template-columns:1fr !important; }
+  .form-group { min-width:0 !important; }
+  label { overflow-wrap:anywhere; }
+  input, select, textarea { width:100% !important; min-height:44px; }
+  textarea { min-height:100px; }
+
+  /* Checkout */
+  .checkout-layout { grid-template-columns:1fr !important; gap:14px !important; }
+  .summary-card { position:static !important; order:-1 !important; }
+  .checkout-card, .summary-card { padding:16px !important; border-radius:15px !important; }
+  .address-option, .payment-option label { padding:12px !important; }
+  .address-text, .address-location, .address-name { overflow-wrap:anywhere; }
+  .payment-option label { align-items:flex-start !important; }
+  .payment-copy { min-width:0; }
+  .payment-name, .payment-note { overflow-wrap:anywhere; }
+  .order-total { font-size:26px !important; }
+  .location-note { font-size:10px !important; }
+  .saved-address-box { padding:10px !important; }
+  .address-map { height:260px !important; }
+  .map-search { flex-direction:column !important; }
+  .map-search button, .gps-btn { width:100% !important; min-height:44px; }
+
+  /* Dashboard */
+  .dashboard-grid { grid-template-columns:1fr !important; }
+  .stats { grid-template-columns:1fr !important; }
+  .welcome { align-items:flex-start !important; }
+  .tracking { grid-template-columns:1fr !important; }
+  .track-summary { align-items:flex-start !important; }
+  .notification-dropdown { position:fixed !important; top:62px !important; right:10px !important; left:10px !important; width:auto !important; max-height:70vh !important; }
+  .danger-zone { flex-direction:column !important; align-items:stretch !important; }
+  .delete-account-btn { width:100% !important; }
+  .quick-actions, .action-grid { grid-template-columns:1fr !important; }
+
+  /* Product detail / cart / orders */
+  .product-detail, .product-layout, .cart-layout, .order-layout, .order-details-grid { grid-template-columns:1fr !important; }
+  .product-info, .product-image, .cart-summary, .order-summary { min-width:0 !important; }
+  .cart-item { grid-template-columns:72px 1fr auto !important; gap:9px !important; }
+  .cart-item img { width:72px !important; height:72px !important; }
+  .cart-summary { position:static !important; }
+
+  /* Tables: keep them usable without breaking layout */
+  table { display:block; width:100%; overflow-x:auto; white-space:nowrap; }
+  th, td { padding:9px 10px !important; }
+  .table-wrap { max-width:100%; overflow-x:auto; }
+
+  /* Generic modals */
+  .modal, .modal-content, .dialog, .modal-card { max-width:calc(100vw - 24px) !important; width:calc(100% - 24px) !important; }
+}
+
+@media (max-width: 480px) {
+  .product-grid { grid-template-columns:1fr 1fr !important; }
+  .container { width:calc(100% - 16px) !important; }
+  .hero { min-height:330px !important; padding:27px 18px !important; }
+  .hero h1 { font-size:32px !important; }
+  .section-heading h2 { font-size:26px !important; }
+  .cart-item { grid-template-columns:58px 1fr !important; }
+  .cart-item > :last-child { grid-column:2; }
+}
+
+/* Dedicated chat pages */
+@media (max-width: 768px) {
+  body:has(.chat-wrap) { min-height:100dvh; }
+  .chat-wrap { width:100% !important; margin:0 !important; padding:8px !important; }
+  .chat-card { min-height:calc(100dvh - 74px); border-radius:14px !important; display:flex; flex-direction:column; }
+  .chat-head { padding:14px !important; }
+  .messages { flex:1; height:auto !important; min-height:calc(100dvh - 220px); padding:12px !important; }
+  .bubble { max-width:84% !important; font-size:13px !important; }
+  .composer { position:sticky; bottom:0; padding:9px !important; background:#fff; }
+  .composer input { min-width:0; }
+  .composer button { min-width:70px; min-height:44px; }
+  .nav { min-height:58px !important; padding:9px 12px !important; gap:8px; }
+  .nav > div:last-child { min-width:0; overflow-x:auto; white-space:nowrap; }
+
+  /* Admin dashboard */
+  .app { display:block !important; }
+  .sidebar { position:relative !important; inset:auto !important; width:100% !important; height:auto !important; padding:12px !important; border-right:0 !important; border-bottom:1px solid var(--line); }
+  .brand { padding:2px 8px 10px !important; font-size:20px !important; }
+  .admin-label { display:none !important; }
+  .nav { display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:4px !important; max-height:180px; overflow:auto; }
+  .nav a { padding:9px 8px !important; font-size:11px !important; min-width:0; }
+  .nav-icon { font-size:14px !important; }
+  .sidebar-bottom { margin-top:8px !important; display:grid !important; grid-template-columns:1fr 1fr; }
+  .main { width:100% !important; margin-left:0 !important; }
+  .topbar { height:auto !important; min-height:58px; padding:10px 12px !important; gap:8px; }
+  .topbar-right { min-width:0; overflow-x:auto; }
+  .content { width:calc(100% - 20px) !important; padding:22px 0 45px !important; }
+  .stats { grid-template-columns:1fr !important; }
+  .dashboard-grid { grid-template-columns:1fr !important; }
+  .attention-grid { grid-template-columns:1fr 1fr !important; }
+}
+
+@media (max-width: 420px) {
+  .attention-grid { grid-template-columns:1fr !important; }
+  .nav { grid-template-columns:1fr 1fr !important; }
+  .topbar-right .store-link { display:none; }
+}
+
+/* ===== Mobile chat / support pass ===== */
+@media (max-width: 768px) {
+  /* Customer live support (/support/live) */
+  body:has(.chat-wrap) { min-height:100dvh; overflow-x:hidden; }
+  .chat-wrap { width:100% !important; max-width:none !important; margin:0 !important; padding:8px !important; }
+  .chat-wrap .chat-card { width:100% !important; min-height:calc(100dvh - 74px); border-radius:14px !important; display:flex; flex-direction:column; }
+  .chat-wrap .chat-head { padding:14px !important; flex:0 0 auto; }
+  .chat-wrap .messages { flex:1 1 auto; height:auto !important; min-height:0 !important; max-height:none !important; padding:12px !important; overscroll-behavior:contain; }
+  .chat-wrap .bubble { max-width:84% !important; font-size:13px !important; overflow-wrap:anywhere; word-break:break-word; }
+  .chat-wrap .composer { position:sticky; bottom:0; z-index:3; padding:9px !important; padding-bottom:calc(9px + env(safe-area-inset-bottom)) !important; background:#fff; }
+  .chat-wrap .composer input { min-width:0; width:auto !important; min-height:44px; font-size:16px; }
+  .chat-wrap .composer button { min-width:70px; min-height:44px; }
+
+  /* AI support (/support) */
+  .page { width:100% !important; max-width:none !important; padding:18px 10px !important; }
+  .page-header { margin-bottom:14px !important; }
+  .page-header h1 { font-size:24px !important; }
+  .page-header p { font-size:12px !important; line-height:1.5; }
+  .chat-card { width:100% !important; border-radius:14px !important; }
+  .chat-header { padding:13px 14px !important; }
+  #chatBox { height:calc(100dvh - 285px) !important; min-height:300px; max-height:620px; padding:12px !important; }
+  .message { max-width:88% !important; font-size:13px !important; overflow-wrap:anywhere; word-break:break-word; }
+  .input-area { padding:9px !important; padding-bottom:calc(9px + env(safe-area-inset-bottom)) !important; position:sticky; bottom:0; z-index:3; }
+  #message { min-width:0; min-height:44px; font-size:16px; }
+  #sendButton { min-width:72px; min-height:44px; padding:0 14px !important; }
+  .quick-questions { padding:10px 12px !important; overflow:hidden; }
+  .quick-buttons { flex-wrap:nowrap !important; overflow-x:auto; padding-bottom:3px; scrollbar-width:none; }
+  .quick-buttons::-webkit-scrollbar { display:none; }
+  .quick-button { flex:0 0 auto; min-height:40px; white-space:nowrap; }
+
+  /* Customer AI page (/customer-ai) */
+  .wrap { width:calc(100% - 16px) !important; margin:16px auto 30px !important; }
+  .wrap .hero { padding:16px !important; border-radius:16px !important; }
+  .wrap .hero h1 { font-size:24px !important; }
+  .wrap .card { border-radius:16px !important; }
+  .wrap .chat { height:calc(100dvh - 350px) !important; min-height:300px; padding:12px !important; }
+  .wrap .bubble { max-width:88% !important; font-size:13px !important; overflow-wrap:anywhere; word-break:break-word; }
+  .wrap .composer { position:sticky; bottom:0; z-index:3; padding:9px !important; padding-bottom:calc(9px + env(safe-area-inset-bottom)) !important; }
+  .wrap .composer input { min-width:0; min-height:44px; font-size:16px; }
+  .wrap .send { min-width:70px; min-height:44px; padding:0 14px !important; }
+  .wrap .suggestions { overflow-x:auto; flex-wrap:nowrap !important; padding-bottom:4px; scrollbar-width:none; }
+  .wrap .suggestions::-webkit-scrollbar { display:none; }
+  .wrap .chip { flex:0 0 auto; white-space:nowrap; min-height:40px; }
+
+  /* Admin customer messages (/admin/messages) */
+  .layout { width:calc(100% - 16px) !important; grid-template-columns:1fr !important; gap:10px !important; padding:12px 0 30px !important; }
+  .layout .panel { min-width:0; }
+  .layout .panel:first-child { max-height:210px; overflow:auto; }
+  .layout .panel:first-child .panel-head { position:sticky; top:0; z-index:2; background:#fff; }
+  .layout .customer { padding:11px 12px !important; }
+  .layout .chat-head { padding:12px !important; overflow-wrap:anywhere; }
+  .layout .messages { height:calc(100dvh - 330px) !important; min-height:280px; max-height:520px; padding:12px !important; }
+  .layout .bubble { max-width:84% !important; font-size:13px !important; overflow-wrap:anywhere; word-break:break-word; }
+  .layout .composer { position:sticky; bottom:0; z-index:3; padding:9px !important; padding-bottom:calc(9px + env(safe-area-inset-bottom)) !important; background:#fff; }
+  .layout .composer input { min-width:0; min-height:44px; font-size:16px; }
+  .layout .composer button { min-width:70px; min-height:44px; }
+}
+
+@media (max-width: 420px) {
+  .chat-wrap .chat-head h1 { font-size:17px !important; }
+  .chat-wrap .bubble { max-width:90% !important; }
+  .page { padding-left:8px !important; padding-right:8px !important; }
+  #chatBox { min-height:280px; }
+  .input-area { gap:6px !important; }
+  #sendButton { min-width:64px; padding:0 10px !important; }
+}

@@ -1,0 +1,1585 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout | CopierStore</title>
+
+    <style>
+        :root {
+            --blue: #2563eb;
+            --blue-dark: #1d4ed8;
+            --navy: #0f172a;
+            --text: #1f2937;
+            --muted: #64748b;
+            --line: #e2e8f0;
+            --soft: #f8fafc;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f7fb;
+            color: var(--text);
+        }
+
+        a {
+            text-decoration: none;
+        }
+
+        .navbar {
+            background: rgba(255, 255, 255, 0.96);
+            border-bottom: 1px solid var(--line);
+            padding: 16px 7%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 20;
+        }
+
+        .logo {
+            font-size: 23px;
+            font-weight: 900;
+            color: var(--navy);
+        }
+
+        .logo span {
+            color: var(--blue);
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-links a {
+            color: #475569;
+            padding: 10px 13px;
+            border-radius: 9px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .nav-links a:hover {
+            background: #f1f5f9;
+        }
+
+        .cart-nav {
+            background: var(--blue) !important;
+            color: white !important;
+        }
+
+        .container {
+            width: min(1180px, calc(100% - 32px));
+            margin: auto;
+            padding: 38px 0 70px;
+        }
+
+        .eyebrow {
+            color: var(--blue);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 12px;
+            font-weight: 900;
+            margin-bottom: 6px;
+        }
+
+        .page-title {
+            font-size: clamp(30px, 4vw, 42px);
+            letter-spacing: -1px;
+            margin-bottom: 7px;
+        }
+
+        .subtitle {
+            color: var(--muted);
+            font-size: 14px;
+            margin-bottom: 28px;
+        }
+
+        .checkout-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.15fr) minmax(300px, .75fr);
+            gap: 22px;
+            align-items: start;
+        }
+
+        .checkout-card {
+            background: white;
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            padding: 26px;
+            box-shadow: 0 12px 35px rgba(15, 23, 42, .05);
+        }
+
+        .checkout-card h2 {
+            font-size: 20px;
+            margin-bottom: 6px;
+        }
+
+        .card-subtitle {
+            color: var(--muted);
+            font-size: 13px;
+            margin-bottom: 22px;
+        }
+
+        .field {
+            margin-bottom: 17px;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 7px;
+        }
+
+        input,
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px 13px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            background: white;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+        }
+
+        input:focus,
+        textarea:focus,
+        select:focus {
+            border-color: var(--blue);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, .10);
+        }
+
+        textarea {
+            height: 125px;
+            resize: vertical;
+        }
+
+        .required {
+            color: #ef4444;
+        }
+
+        .location-note {
+            color: var(--muted);
+            font-size: 11px;
+            margin-top: 6px;
+        }
+
+        .summary-card {
+            position: sticky;
+            top: 92px;
+        }
+
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 14px 0;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .order-item:first-child {
+            border-top: 1px solid var(--line);
+        }
+
+        .order-item-name {
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .order-item-meta {
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 3px;
+        }
+
+        .order-item-price {
+            font-size: 14px;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+.shipping-summary {
+            margin-top: 16px;
+            padding: 12px 13px;
+            border: 1px solid var(--line);
+            border-radius: 11px;
+            background: var(--soft);
+            color: #475569;
+            font-size: 12px;
+            line-height: 1.55;
+        }
+
+        .shipping-summary strong { color: var(--text); }
+
+        .summary-rows {
+            margin-top: 15px;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            margin: 11px 0;
+            color: #475569;
+            font-size: 14px;
+        }
+
+        .summary-row strong {
+            color: var(--text);
+        }
+
+        .total {
+            border-top: 1px solid var(--line);
+            margin-top: 16px;
+            padding-top: 17px;
+            display: flex;
+            justify-content: space-between;
+            align-items: end;
+        }
+
+        .total span {
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 900;
+        }
+
+        .total strong {
+            color: var(--navy);
+            font-size: 29px;
+            font-weight: 900;
+        }
+
+        .place-order {
+            width: 100%;
+            border: none;
+            background: var(--blue);
+            color: white;
+            padding: 14px;
+            border-radius: 11px;
+            margin-top: 20px;
+            font-size: 15px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .place-order:hover {
+            background: var(--blue-dark);
+        }
+
+        .secure {
+            display: flex;
+            gap: 9px;
+            margin-top: 13px;
+            padding: 12px;
+            background: var(--soft);
+            border: 1px solid var(--line);
+            border-radius: 11px;
+            color: var(--muted);
+            font-size: 11px;
+            line-height: 1.5;
+        }
+
+        .secure strong {
+            color: var(--text);
+        }
+
+        .back-cart {
+            display: inline-block;
+            margin-top: 16px;
+            color: var(--blue);
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .back-cart:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 850px) {
+            .checkout-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .summary-card {
+                position: static;
+                order: -1;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .navbar {
+                padding: 13px 16px;
+            }
+
+            .nav-links a:not(.cart-nav) {
+                display: none;
+            }
+
+            .container {
+                width: calc(100% - 20px);
+                padding-top: 25px;
+            }
+
+            .checkout-card {
+                padding: 19px;
+                border-radius: 16px;
+            }
+        }
+
+        .payment-methods {
+            display: grid;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        .payment-option {
+            position: relative;
+        }
+
+        .payment-option input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .payment-option label {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            cursor: pointer;
+            background: white;
+            transition: .15s ease;
+        }
+
+        .payment-option label:hover {
+            border-color: #93c5fd;
+            background: #f8fbff;
+        }
+
+        .payment-option input:checked+label {
+            border-color: var(--blue);
+            background: #eff6ff;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, .08);
+        }
+
+        .payment-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            display: grid;
+            place-items: center;
+            background: #f1f5f9;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .payment-option input:checked+label .payment-icon {
+            background: #dbeafe;
+        }
+
+        .payment-copy {
+            flex: 1;
+        }
+
+        .payment-name {
+            display: block;
+            font-size: 14px;
+            font-weight: 900;
+            color: var(--text);
+        }
+
+        .payment-note {
+            display: block;
+            margin-top: 3px;
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: normal;
+        }
+
+        .payment-check {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #cbd5e1;
+            border-radius: 50%;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .payment-option input:checked+label .payment-check {
+            border-color: var(--blue);
+        }
+
+        .payment-option input:checked+label .payment-check::after {
+            content: "";
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--blue);
+            top: 4px;
+            left: 4px;
+        }
+
+        .payment-info {
+            display: none;
+            margin-top: 10px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            background: #f8fafc;
+            border: 1px solid var(--line);
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .payment-info.show {
+            display: block;
+        }
+
+
+        .payment-details {
+            display: none;
+            margin-top: 12px;
+            padding: 15px;
+            border: 1px solid #bfdbfe;
+            background: #eff6ff;
+            border-radius: 12px;
+        }
+
+        .payment-details.show {
+            display: block;
+        }
+
+        .payment-details h3 {
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .payment-account {
+            font-weight: 900;
+            color: #1e40af;
+            margin: 5px 0;
+        }
+
+        .payment-help {
+            color: #64748b;
+            font-size: 11px;
+            line-height: 1.5;
+            margin-top: 7px;
+        }
+
+        .payment-details input[type="text"],
+        .payment-details input[type="file"] {
+            width: 100%;
+            margin-top: 8px;
+        }
+
+        .saved-address-box {
+            border: 1px solid #dbeafe;
+            background: #f8fbff;
+            border-radius: 14px;
+            padding: 15px;
+        }
+
+        .saved-address-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .saved-address-header strong {
+            display: block;
+            font-size: 14px;
+        }
+
+        .saved-address-header small {
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        .saved-address-header a {
+            color: var(--blue);
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .address-list {
+            display: grid;
+            gap: 9px;
+        }
+
+        .address-option {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px;
+            border: 1px solid #dbe3ef;
+            border-radius: 12px;
+            background: white;
+            cursor: pointer;
+            transition: .15s ease;
+        }
+
+        .address-option:hover {
+            border-color: #93c5fd;
+        }
+
+        .address-option:has(input:checked) {
+            border-color: var(--blue);
+            background: #eff6ff;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, .08);
+        }
+
+        .address-option input {
+            display: none;
+        }
+
+        .address-option-content {
+            flex: 1;
+        }
+
+        .address-top {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
+        }
+
+        .address-top strong {
+            font-size: 13px;
+        }
+
+        .default-badge {
+            background: #dcfce7;
+            color: #166534;
+            padding: 3px 7px;
+            border-radius: 20px;
+            font-size: 9px;
+            font-weight: 900;
+        }
+
+        .address-name {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .address-text,
+        .address-location {
+            color: var(--muted);
+            font-size: 11px;
+            line-height: 1.5;
+        }
+
+        .radio-circle {
+            width: 19px;
+            height: 19px;
+            border: 2px solid #cbd5e1;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .address-option:has(input:checked) .radio-circle {
+            border-color: var(--blue);
+            position: relative;
+        }
+
+        .address-option:has(input:checked) .radio-circle::after {
+            content: "";
+            position: absolute;
+            width: 9px;
+            height: 9px;
+            background: var(--blue);
+            border-radius: 50%;
+            top: 3px;
+            left: 3px;
+        }
+
+        .change-address {
+            display: inline-block;
+            margin-top: 12px;
+            color: var(--blue);
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .no-address-box {
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 17px;
+        }
+
+        #deliveryDistance {
+            margin-top: 3px;
+            font-size: 10px;
+        }
+
+        .no-address-box strong {
+            display: block;
+            color: #9a3412;
+            margin-bottom: 5px;
+        }
+
+        .no-address-box p {
+            color: #9a3412;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+
+        .no-address-box a {
+            color: #2563eb;
+            font-size: 12px;
+            font-weight: bold;
+        }
+    
+        .delivery-methods { display:grid; gap:12px; margin-top:10px; }
+        .delivery-method { display:flex; align-items:center; gap:12px; border:1px solid #e5e7eb; border-radius:14px; padding:14px; cursor:pointer; background:#fff; transition:.2s ease; }
+        .delivery-method:has(input:checked) { border-color:#111827; box-shadow:0 0 0 2px rgba(17,24,39,.08); }
+        .delivery-method input { accent-color:#111827; }
+        .delivery-method-copy { flex:1; }
+        .delivery-method-copy strong { display:block; }
+        .delivery-method-copy small { color:#6b7280; }
+        .quote-box { margin-top:10px; padding:12px 14px; border-radius:12px; background:#f8fafc; display:none; }
+        .quote-box.show { display:block; }
+        .quote-action { margin-top:10px; width:100%; border:0; border-radius:10px; padding:11px 14px; font-weight:700; cursor:pointer; }
+        .quote-action:disabled { opacity:.6; cursor:not-allowed; }
+        #manualCourierChoice.show { display:block !important; }
+        #manualCourierChoice select { margin-top:4px; }
+</style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <a href="/" class="logo">Copier<span>Store</span></a>
+
+        <div class="nav-links">
+            <a href="/">Home</a>
+            <a href="/">Products</a>
+            <a href="/support">✨ AI Support</a>
+            <a href="/cart" class="cart-nav">🛒 Cart</a>
+        </div>
+    </nav>
+
+    <main class="container">
+
+        <div class="eyebrow">Secure checkout</div>
+        <h1 class="page-title">Complete Your Order</h1>
+        <p class="subtitle">
+            Enter your delivery details and review your order before placing it.
+        </p>
+
+        <div class="checkout-layout">
+
+            <section class="checkout-card">
+
+                <h2>Customer Information</h2>
+
+                <p class="card-subtitle">
+                    Where should we deliver your order?
+                </p>
+
+                <form action="/place-order" method="POST" id="checkoutForm" enctype="multipart/form-data">
+
+                    <!-- SAVED DELIVERY ADDRESS -->
+
+                    <div class="field">
+
+                        <label>
+                            📍 Delivery Address <span class="required">*</span>
+                        </label>
+
+
+                        {% if addresses %}
+
+                        <div class="saved-address-box">
+
+                            <div class="saved-address-header">
+
+                                <div>
+                                    <strong>Choose your address</strong>
+
+                                    <small>
+                                        Your saved addresses
+                                    </small>
+                                </div>
+
+                                <a href="/customer-settings">
+                                    Manage
+                                </a>
+
+                            </div>
+
+
+                            <div class="address-list">
+
+                                {% for address in addresses %}
+
+                                <label class="address-option" for="address_{{ address['id'] }}">
+
+                                    <input type="radio" id="address_{{ address['id'] }}" name="selected_address"
+                                        value="{{ address['id'] }}" data-name="{{ address['recipient_name'] }}"
+                                        data-phone="{{ address['phone'] }}" data-address="{{ address['address'] }}"
+                                        data-location="{{ address['location'] }}" data-latitude="{{ address['latitude'] or '' }}" data-longitude="{{ address['longitude'] or '' }}" {% if address['is_default']
+                                        %}checked{% endif %} onchange="selectSavedAddress(this)">
+
+
+                                    <div class="address-option-content">
+
+                                        <div class="address-top">
+
+                                            <strong>
+
+                                                {% if address['label'] == 'Home' %}
+                                                🏠
+                                                {% elif address['label'] == 'Work' %}
+                                                🏢
+                                                {% else %}
+                                                📍
+                                                {% endif %}
+
+                                                {{ address['label'] }}
+
+                                            </strong>
+
+
+                                            {% if address['is_default'] %}
+
+                                            <span class="default-badge">
+                                                DEFAULT
+                                            </span>
+
+                                            {% endif %}
+
+                                        </div>
+
+
+                                        <div class="address-name">
+                                            {{ address['recipient_name'] }}
+                                            ·
+                                            {{ address['phone'] }}
+                                        </div>
+
+
+                                        <div class="address-text">
+                                            {{ address['address'] }}
+                                        </div>
+
+
+                                        <div class="address-location">
+                                            📍 {{ address['location'] }}
+                                        </div>
+
+                                    </div>
+
+                                    <div class="radio-circle"></div>
+
+                                </label>
+
+                                {% endfor %}
+
+                            </div>
+
+
+                            <a href="/customer-settings" class="change-address">
+                                ⚙️ Manage or add another address
+                            </a>
+
+                        </div>
+
+
+                        <!-- These are submitted to /place-order -->
+
+                        <input type="hidden" name="name" id="checkoutName" required>
+
+                        <input type="hidden" name="phone" id="checkoutPhone" required>
+
+                        <input type="hidden" name="location" id="checkoutLocation" required>
+
+                        <input type="hidden" name="address" id="checkoutAddress" required>
+
+                        <input type="hidden" name="selected_address" id="selectedAddressId" required>
+                        <input type="hidden" name="latitude" id="checkoutLatitude">
+                        <input type="hidden" name="longitude" id="checkoutLongitude">
+                        <input type="hidden" name="delivery_provider" id="deliveryProvider" value="Standard Delivery">
+
+
+                        {% else %}
+
+                        <!-- Guest / no saved address -->
+
+                        <div class="no-address-box">
+
+                            <strong>
+                                📍 No saved address yet
+                            </strong>
+
+                            <p>
+                                Add an address in your account settings to make
+                                checkout faster next time.
+                            </p>
+
+                            <a href="/customer-settings">
+                                + Add Address
+                            </a>
+
+                        </div>
+
+
+                        <div class="field">
+
+                            <label for="name">
+                                Full Name <span class="required">*</span>
+                            </label>
+
+                            <input type="text" id="name" name="name" autocomplete="name" required>
+
+                        </div>
+
+
+                        <div class="field">
+
+                            <label for="phone">
+                                Phone Number <span class="required">*</span>
+                            </label>
+
+                            <input type="tel" id="phone" name="phone" autocomplete="tel" required>
+
+                        </div>
+
+
+                        <div class="field">
+
+                            <label for="location">
+                                Delivery Location <span class="required">*</span>
+                            </label>
+
+                            <select id="location" name="location" onchange="updateCheckoutTotal()" required>
+
+                                <option value="">
+                                    Select your location
+                                </option>
+
+                                <option value="Cebu City">
+                                    Cebu City — ₱150
+                                </option>
+
+                                <option value="Mandaue">
+                                    Mandaue — ₱180
+                                </option>
+
+                                <option value="Lapu-Lapu">
+                                    Lapu-Lapu — ₱200
+                                </option>
+
+                                <option value="Consolacion">
+                                    Consolacion — ₱250
+                                </option>
+
+                                <option value="Outside Cebu">
+                                    Outside Cebu — ₱500
+                                </option>
+
+                            </select>
+
+                        </div>
+
+
+                        <div class="field">
+
+                            <label for="address">
+                                Delivery Address <span class="required">*</span>
+                            </label>
+
+                            <textarea id="address" name="address" placeholder="House / building, street, barangay..."
+                                required></textarea>
+
+                        </div>
+
+                        {% endif %}
+
+                        <div class="field">
+                            <label>Delivery Method <span class="required">*</span></label>
+                            <div class="delivery-methods">
+                                <label class="delivery-method">
+                                    <input type="radio" name="delivery_method_ui" value="Store Delivery" checked onchange="setDeliveryProvider('Store Delivery')">
+                                    <div class="delivery-method-copy">
+                                        <strong>🚚 Store Delivery</strong>
+                                        <small>Distance-based store delivery</small>
+                                    </div>
+                                </label>
+                                <label class="delivery-method">
+                                    <input type="radio" name="delivery_method_ui" value="Lalamove" onchange="setDeliveryProvider('Lalamove')">
+                                    <div class="delivery-method-copy">
+                                        <strong>🛵 Lalamove</strong>
+                                        <small>Live quotation using your exact map pin</small>
+                                    </div>
+                                </label>
+                                <label class="delivery-method">
+                                    <input type="radio" name="delivery_method_ui" value="Manual Courier" onchange="setDeliveryProvider('Manual Courier')">
+                                    <div class="delivery-method-copy">
+                                        <strong>📦 Manual Courier</strong>
+                                        <small>J&amp;T / other courier · tracking updated manually by CopierStore</small>
+                                    </div>
+                                </label>
+                            </div>
+                            <div id="lalamoveQuoteBox" class="quote-box">
+                                <div id="lalamoveQuoteText">Choose Lalamove to get a live delivery quotation.</div>
+                                <button type="button" id="getLalamoveQuoteBtn" class="quote-action" onclick="getLalamoveQuote()">Get Live Lalamove Quote</button>
+                            </div>
+                            <div id="manualCourierBox" class="quote-box">
+                                <strong>📦 Manual Courier</strong>
+                                <div style="margin-top:6px;color:#475569;line-height:1.55;">Choose the courier you prefer, then check its <strong>official shipping-rate page</strong> for the actual courier charge. CopierStore will <strong>not guess or add a courier fee</strong> here.</div>
+                                <div style="margin-top:12px;padding:12px;border:1px solid #dbeafe;border-radius:12px;background:#f8fbff;">
+                                    <div style="font-size:11px;font-weight:900;color:#1e3a8a;">📍 CopierStore shipping origin</div>
+                                    <div id="publicStoreAddress" style="margin-top:5px;font-size:12px;font-weight:800;color:#0f172a;line-height:1.45;">{{ store_location.store_name }} · {{ store_location.address }}, {{ store_location.location }}</div>
+                                    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:9px;">
+                                        <button type="button" class="quote-action" style="width:auto;padding:8px 11px;" onclick="copyStoreAddress()">📋 Copy shop address</button>
+                                        <a class="quote-action" style="display:inline-flex;width:auto;padding:8px 11px;text-decoration:none;align-items:center;justify-content:center;" target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps/search/?api=1&query={{ (store_location.latitude|string + ',' + store_location.longitude|string)|urlencode }}">🗺️ Open in Maps</a>
+                                        <a href="/store-location" target="_blank" rel="noopener noreferrer" style="font-size:11px;font-weight:850;display:inline-flex;align-items:center;padding:8px 11px;text-decoration:none;">View public store location ↗</a>
+                                    </div>
+                                    <div style="margin-top:7px;font-size:10px;color:#64748b;line-height:1.45;">Use this as the <strong>origin/pickup address</strong> when checking J&amp;T, LBC, Ninja Van, or another courier's rate. Your saved delivery address is the destination.</div>
+                                </div>
+                                <div class="courier-rate-links" style="display:grid;gap:8px;margin-top:12px;">
+                                    <a href="https://www.jtexpress.ph/index/query/shipping.html" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid #dbeafe;border-radius:10px;background:#f8fbff;text-decoration:none;color:#1d4ed8;font-weight:850;font-size:12px;">
+                                        <span>🟠 J&amp;T Express</span><span>Check official rates ↗</span>
+                                    </a>
+                                    <a href="https://www.lbcexpress.com/rates" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid #dbeafe;border-radius:10px;background:#f8fbff;text-decoration:none;color:#1d4ed8;font-weight:850;font-size:12px;">
+                                        <span>🔵 LBC Express</span><span>Rate calculator ↗</span>
+                                    </a>
+                                    <a href="https://www.ninjavan.co/en-ph/support/shipper-support/pricing-and-coverage/how-to-calculate-and-check-shipping-rates" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid #dbeafe;border-radius:10px;background:#f8fbff;text-decoration:none;color:#1d4ed8;font-weight:850;font-size:12px;">
+                                        <span>🟣 Ninja Van</span><span>Check pricing ↗</span>
+                                    </a>
+                                </div>
+                                <div id="manualCourierEstimate" style="margin-top:11px;font-weight:900;color:#475569;">Shipping fee: <strong>Not included</strong> — check your courier's official rate.</div>
+                            </div>
+                            <div id="manualCourierChoice" class="quote-box" style="display:none;">
+                                <label for="manualCourierSelect" style="display:block;font-weight:900;margin-bottom:7px;">Choose your courier</label>
+                                <select id="manualCourierSelect" name="manual_courier_name" onchange="updateManualCourierChoice()">
+                                    <option value="">Select a courier</option>
+                                    <option value="J&amp;T Express">J&amp;T Express</option>
+                                    <option value="LBC Express">LBC Express</option>
+                                    <option value="Ninja Van">Ninja Van</option>
+                                    <option value="Other Courier">Other Courier</option>
+                                </select>
+                                <div id="manualCourierChoiceNote" style="margin-top:8px;color:#64748b;font-size:11px;">Choose a courier above. The courier fee is checked directly from the courier's official rate page.</div>
+                            </div>
+                        </div>
+
+                        <div class="field">
+
+                            <label>
+                                Payment Method <span class="required">*</span>
+                            </label>
+
+                            <div class="payment-methods">
+
+                                {% if payment_settings.cod_enabled %}
+                                <div class="payment-option">
+                                
+                                                                    <input type="radio" id="cod" name="payment_method" value="Cash on Delivery" checked
+                                                                        onchange="updatePaymentInfo()">
+                                
+                                                                    <label for="cod">
+                                
+                                                                        <span class="payment-icon">💵</span>
+                                
+                                                                        <span class="payment-copy">
+                                                                            <span class="payment-name">
+                                                                                Cash on Delivery
+                                                                            </span>
+                                                                            <span class="payment-note">
+                                                                                Pay when your order arrives.
+                                                                            </span>
+                                                                        </span>
+                                
+                                                                        <span class="payment-check"></span>
+                                
+                                                                    </label>
+                                
+                                                                </div>
+                                {% endif %}
+
+
+                                {% if payment_settings.gcash_enabled %}
+                                <div class="payment-option">
+
+                                    <input type="radio" id="gcash" name="payment_method" value="GCash"
+                                        onchange="updatePaymentInfo()" {% if not payment_settings.cod_enabled
+                                        %}checked{% endif %}>
+
+                                    <label for="gcash">
+
+                                        <span class="payment-icon">📱</span>
+
+                                        <span class="payment-copy">
+                                            <span class="payment-name">
+                                                GCash
+                                            </span>
+                                            <span class="payment-note">
+                                                Payment instructions will be provided after checkout.
+                                            </span>
+                                        </span>
+
+                                        <span class="payment-check"></span>
+
+                                    </label>
+
+                                </div>
+                                {% endif %}
+
+
+                                {% if payment_settings.bank_enabled %}
+                                <div class="payment-option">
+
+                                    <input type="radio" id="bank" name="payment_method" value="Bank Transfer"
+                                        onchange="updatePaymentInfo()">
+
+                                    <label for="bank">
+
+                                        <span class="payment-icon">🏦</span>
+
+                                        <span class="payment-copy">
+                                            <span class="payment-name">
+                                                Bank Transfer
+                                            </span>
+                                            <span class="payment-note">
+                                                Transfer details will be provided after checkout.
+                                            </span>
+                                        </span>
+
+                                        <span class="payment-check"></span>
+
+                                    </label>
+
+                                </div>
+                                {% endif %}
+
+                            </div>
+
+                            <div class="payment-info show" id="paymentInfo">
+                                💵 You will pay the delivery person when your order arrives.
+                            </div>
+
+                            <div class="payment-details" id="gcashDetails">
+                                <h3>📱 GCash Payment</h3>
+                                <div class="payment-account">GCash Number: {{ payment_settings.gcash_number }}</div>
+                                <div class="payment-account">Account Name: {{ payment_settings.gcash_name }}</div>
+                                <p class="payment-help">Replace these placeholder details with your real GCash
+                                    information.</p>
+                                <label for="gcashReference" style="margin-top:10px;">Reference Number</label>
+                                <input id="gcashReference" type="text" placeholder="Enter GCash reference number">
+                                <label for="gcashReceipt" style="margin-top:10px;">Payment Screenshot</label>
+                                <input id="gcashReceipt" type="file" accept="image/png,image/jpeg,image/webp">
+                            </div>
+
+                            <div class="payment-details" id="bankDetails">
+                                <h3>🏦 Bank Transfer</h3>
+                                <div class="payment-account">Bank: {{ payment_settings.bank_name or "Not configured" }}
+                                </div>
+                                <div class="payment-account">Account Name: {{ payment_settings.gcash_name }}</div>
+                                <div class="payment-account">Account Number: XXXXXXXXXX</div>
+                                <p class="payment-help">Replace these placeholder details with your real bank
+                                    information.</p>
+                                <label for="bankReference" style="margin-top:10px;">Reference Number</label>
+                                <input id="bankReference" type="text" placeholder="Enter bank reference number">
+                                <label for="bankReceipt" style="margin-top:10px;">Payment Receipt</label>
+                                <input id="bankReceipt" type="file" accept="image/png,image/jpeg,image/webp">
+                            </div>
+
+                            {% if payment_settings.cod_deposit_enabled and payment_settings.cod_deposit_amount > 0 %}
+                            <div class="cod-deposit-card" id="codDepositDetails">
+                                <strong>🛡️ COD Security Deposit</strong>
+                                <small>
+                                    A ₱{{ "{:,.2f}".format(payment_settings.cod_deposit_amount) }}
+                                    deposit is required before a COD order can be dispatched.
+                                    The remaining balance is paid upon delivery.
+                                </small>
+
+                                <label for="codDepositReference" style="margin-top:10px;">
+                                    GCash Reference Number
+                                </label>
+                                <input
+                                    id="codDepositReference"
+                                    type="text"
+                                    placeholder="Enter deposit reference number"
+                                >
+
+                                <label for="codDepositReceipt" style="margin-top:10px;">
+                                    Deposit Payment Proof
+                                </label>
+                                <input
+                                    id="codDepositReceipt"
+                                    type="file"
+                                    accept="image/png,image/jpeg,image/webp"
+                                >
+                            </div>
+                            {% endif %}
+
+                            <div class="checkout-terms">
+                                <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;">
+                                    <input
+                                        type="checkbox"
+                                        name="terms_accepted"
+                                        required
+                                        style="margin-top:3px;width:auto;"
+                                    >
+                                    <span>
+                                        I have read and agree to the
+                                        <a href="/terms" target="_blank" style="font-weight:800;color:#2563eb;">
+                                            CopierStore Terms & Conditions
+                                        </a>,
+                                        including the payment, cancellation, delivery,
+                                        and refund policies.
+                                    </span>
+                                </label>
+                            </div>
+
+                        </div>
+
+                        <input type="hidden" name="product" value="{{ cart[0].product if cart else '' }}">
+
+                        <input type="hidden" name="quantity" value="{{ cart[0].quantity if cart else 0 }}">
+
+                        <input type="hidden" name="subtotal" value="{{ cart_total }}">
+
+                        <input type="hidden" name="delivery_fee" id="deliveryFeeInput" value="{{ delivery_fee }}">
+
+                        <input type="hidden" name="total" id="totalInput" value="{{ total }}">
+
+                        <button type="submit" class="place-order">
+                            Place Order →
+                        </button>
+
+                </form>
+
+                <a href="/cart" class="back-cart">
+                    ← Back to Cart
+                </a>
+
+            </section>
+
+            <aside class="checkout-card summary-card">
+
+                <h2>Order Summary</h2>
+
+                {% for item in cart %}
+
+                <div class="order-item">
+
+                    <div>
+                        <div class="order-item-name">
+                            {{ item.product }}
+                        </div>
+
+                        <div class="order-item-meta">
+                            Qty {{ item.quantity }}
+                            × ₱{{ "{:,.2f}".format(item.price) }}
+                        </div>
+                    </div>
+
+                    <div class="order-item-price">
+                        ₱{{ "{:,.2f}".format(item.price * item.quantity) }}
+                    </div>
+
+                </div>
+
+                {% endfor %}
+
+                <div class="shipping-summary">
+                <strong>🚚 Estimated package size</strong><br>
+                {{ "%.2f"|format(shipping_specs.weight_kg or 0) }} kg · max {{ "%.1f"|format(shipping_specs.length_cm or 0) }} × {{ "%.1f"|format(shipping_specs.width_cm or 0) }} × {{ "%.1f"|format(shipping_specs.height_cm or 0) }} cm
+                {% if not shipping_specs.complete %}<br><span style="color:#b45309;">Some product package specs are still missing; delivery vehicle selection may need manual confirmation.</span>{% endif %}
+            </div>
+
+            <div class="summary-rows">
+
+                    <div class="summary-row">
+                        <span>Subtotal</span>
+
+                        <strong>
+                            ₱{{ "{:,.2f}".format(cart_total) }}
+                        </strong>
+                    </div>
+
+                    <div class="summary-row">
+                        <div>
+                            <span>Delivery</span>
+                            <div id="deliveryDistance" class="location-note"></div>
+                        </div>
+
+                        <strong id="deliveryFeeDisplay">
+                            ₱{{ "{:,.2f}".format(delivery_fee) }}
+                        </strong>
+                    </div>
+
+                </div>
+
+                <div class="total">
+
+                    <span>ORDER TOTAL</span>
+
+                    <strong id="totalDisplay">
+                        ₱{{ "{:,.2f}".format(total) }}
+                    </strong>
+
+                </div>
+
+                <div class="secure">
+                    <span>🔒</span>
+
+                    <div>
+                        <strong>Secure order</strong>
+                        <br>
+                        Your order details are submitted directly to CopierStore.
+                    </div>
+                </div>
+
+            </aside>
+
+        </div>
+
+    </main>
+
+    <script>
+        const deliveryFees = {
+            "Cebu City": 150,
+            "Mandaue": 180,
+            "Lapu-Lapu": 200,
+            "Consolacion": 250,
+            "Outside Cebu": 500
+        };
+
+        function money(value) {
+            return "₱" + Number(value).toLocaleString("en-PH", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        function updatePaymentInfo() {
+
+            const selected = document.querySelector('input[name="payment_method"]:checked');
+            const info = document.getElementById("paymentInfo");
+            const gcash = document.getElementById("gcashDetails");
+            const bank = document.getElementById("bankDetails");
+            const deposit = document.getElementById("codDepositDetails");
+
+            const gcashRef = document.getElementById("gcashReference");
+            const gcashReceipt = document.getElementById("gcashReceipt");
+            const bankRef = document.getElementById("bankReference");
+            const bankReceipt = document.getElementById("bankReceipt");
+            const depositRef = document.getElementById("codDepositReference");
+            const depositReceipt = document.getElementById("codDepositReceipt");
+
+            if (!selected) return;
+
+            gcash.classList.remove("show");
+            bank.classList.remove("show");
+
+            if (deposit) {
+                deposit.style.display = "none";
+            }
+
+            [gcashRef, gcashReceipt, bankRef, bankReceipt].forEach(el => {
+                if (!el) return;
+                el.removeAttribute("name");
+                el.removeAttribute("required");
+            });
+
+            if (depositRef) {
+                depositRef.removeAttribute("name");
+                depositRef.removeAttribute("required");
+            }
+
+            if (depositReceipt) {
+                depositReceipt.removeAttribute("name");
+                depositReceipt.removeAttribute("required");
+            }
+
+            if (selected.value === "GCash") {
+
+                info.innerText =
+                    "📱 Send the exact order total through GCash, then upload your screenshot and reference number.";
+
+                gcash.classList.add("show");
+
+                gcashRef.setAttribute("name", "payment_reference");
+                gcashReceipt.setAttribute("name", "payment_receipt");
+
+                gcashRef.required = true;
+                gcashReceipt.required = true;
+
+            } else if (selected.value === "Bank Transfer") {
+
+                info.innerText =
+                    "🏦 Transfer the exact order total to the bank account, then upload your receipt and reference number.";
+
+                bank.classList.add("show");
+
+                bankRef.setAttribute("name", "payment_reference");
+                bankReceipt.setAttribute("name", "payment_receipt");
+
+                bankRef.required = true;
+                bankReceipt.required = true;
+
+            } else {
+
+                info.innerText =
+                    "💵 Pay the remaining balance to the rider when your order arrives.";
+
+                if (deposit) {
+                    deposit.style.display = "block";
+
+                    if (depositRef && depositReceipt) {
+                        depositRef.setAttribute("name", "cod_deposit_reference");
+                        depositReceipt.setAttribute("name", "cod_deposit_receipt");
+
+                        depositRef.required = true;
+                        depositReceipt.required = true;
+                    }
+                }
+            }
+        }
+
+        async function calculateCheckoutDelivery(address, location, selectedAddressId = "") {
+
+            const distanceInfo = document.getElementById("deliveryDistance");
+            const provider = document.getElementById("deliveryProvider")?.value || "Standard Delivery";
+
+            if (provider === "Lalamove") {
+                return getLalamoveQuote();
+            }
+
+            try {
+
+                const formData = new FormData();
+                formData.append("address", address || "");
+                formData.append("location", location || "");
+                formData.append("selected_address", selectedAddressId || "");
+
+                distanceInfo.textContent = "Calculating delivery distance…";
+
+                const response = await fetch("/calculate-delivery", {
+                    method: "POST",
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error("Delivery calculation failed");
+                }
+
+                const fee = Number(data.fee || 0);
+                const subtotal = Number({{ cart_total|tojson }});
+                const total = subtotal + fee;
+
+                document.getElementById("deliveryFeeDisplay").textContent = provider === "Manual Courier" ? "Not included" : money(fee);
+                document.getElementById("totalDisplay").textContent = money(total);
+                document.getElementById("deliveryFeeInput").value = fee;
+                document.getElementById("totalInput").value = total;
+
+                if (data.distance_km !== null && data.distance_km !== undefined) {
+                    distanceInfo.textContent = provider === "Manual Courier"
+                        ? "📦 " + data.distance_km + " km from the store · Courier fee checked separately"
+                        : "🚚 " + data.distance_km + " km from the store · Distance-based rate";
+                    const manualEstimate = document.getElementById("manualCourierEstimate");
+                    if (manualEstimate && provider === "Manual Courier") {
+                        manualEstimate.innerHTML = "Shipping fee: <strong>Not included</strong> — check your courier's official rate.";
+                    }
+                } else {
+                    distanceInfo.textContent = "🚚 Standard delivery rate";
+                }
+
+            } catch (error) {
+
+                console.error("Delivery calculation error:", error);
+
+                const fee = Number(deliveryFees[location] || 0);
+                const subtotal = Number({{ cart_total|tojson }});
+                const total = subtotal + fee;
+
+                document.getElementById("deliveryFeeDisplay").textContent = provider === "Manual Courier" ? "Not included" : money(fee);
+                document.getElementById("totalDisplay").textContent = money(total);
+                document.getElementById("deliveryFeeInput").value = fee;
+                document.getElementById("totalInput").value = total;
+
+                distanceInfo.textContent = provider === "Manual Courier"
+                    ? "📦 Courier fee checked separately with your selected courier"
+                    : "🚚 Store delivery rate";
+                const manualEstimate = document.getElementById("manualCourierEstimate");
+                if (manualEstimate && provider === "Manual Courier") {
+                    manualEstimate.innerHTML = "Shipping fee: <strong>Not included</strong> — check your courier's official rate.";
+                }
+            }
+        }
+
+        async function copyStoreAddress() {
+            const el = document.getElementById("publicStoreAddress");
+            if (!el) return;
+            const text = el.textContent.trim();
+            try {
+                await navigator.clipboard.writeText(text);
+                const original = el.dataset.copied || text;
+                el.dataset.copied = original;
+                el.textContent = "✓ Shop address copied — paste this as the courier origin.";
+                setTimeout(() => { el.textContent = original; }, 2200);
+            } catch (e) {
+                window.prompt("Copy the CopierStore shipping origin:", text);
+            }
+        }
+
+        function updateManualCourierChoice() {
+            const select = document.getElementById("manualCourierSelect");
+            const note = document.getElementById("manualCourierChoiceNote");
+            if (!select || !note) return;
+            const courier = select.value;
+            note.textContent = courier
+                ? courier + " selected. Open its official rate page above to check the courier charge."
+                : "You choose the courier. The courier fee is checked directly from the official rate page.";
+        }
+
+        function setDeliveryProvider(provider) {
+            document.getElementById("deliveryProvider").value = provider;
+            const box = document.getElementById("lalamoveQuoteBox");
+            const manualBox = document.getElementById("manualCourierBox");
+            const manualChoice = document.getElementById("manualCourierChoice");
+            const manualSelect = document.getElementById("manualCourierSelect");
+            if (manualChoice) manualChoice.classList.toggle("show", provider === "Manual Courier");
+            if (manualSelect) manualSelect.required = provider === "Manual Courier";
+            if (provider === "Lalamove") {
+                box.classList.add("show");
+                if (manualBox) manualBox.classList.remove("show");
+                getLalamoveQuote();
+            } else if (provider === "Manual Courier") {
+                box.classList.remove("show");
+                if (manualBox) manualBox.classList.add("show");
+                updateCheckoutTotal();
+            } else {
+                box.classList.remove("show");
+                if (manualBox) manualBox.classList.remove("show");
+                if (manualChoice) manualChoice.classList.remove("show");
+                if (manualSelect) { manualSelect.required = false; manualSelect.value = ""; }
+                updateCheckoutTotal();
+            }
+        }
+        async function getLalamoveQuote() {
+            const box = document.getElementById("lalamoveQuoteBox");
+            const text = document.getElementById("lalamoveQuoteText");
+            const btn = document.getElementById("getLalamoveQuoteBtn");
+            const address = document.getElementById("checkoutAddress").value || document.getElementById("address")?.value || "";
+            const latitude = document.getElementById("checkoutLatitude").value;
+            const longitude = document.getElementById("checkoutLongitude").value;
+
+            box.classList.add("show");
+            btn.disabled = true;
+            text.textContent = "Getting a live Lalamove quotation…";
+
+            if (!latitude || !longitude) {
+                text.textContent = "📍 Please choose a saved address with an exact GPS pin first.";
+                btn.disabled = false;
+                return;
+            }
+
+            try {
+                const response = await fetch("/api/lalamove/quote", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({ address, latitude, longitude })
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) throw new Error(data.message || "Quotation failed");
+
+                const fee = Number(data.total || 0);
+                const subtotal = Number({{ cart_total|tojson }});
+                document.getElementById("deliveryFeeDisplay").textContent = money(fee);
+                document.getElementById("totalDisplay").textContent = money(subtotal + fee);
+                document.getElementById("deliveryFeeInput").value = fee;
+                document.getElementById("totalInput").value = subtotal + fee;
+                text.textContent = "🛵 Lalamove live quote: " + money(fee) + (data.expires_at ? " · Quote valid for a limited time" : "");
+                document.getElementById("deliveryDistance").textContent = "🛵 Lalamove real-time quotation";
+            } catch (error) {
+                console.error("Lalamove quote error:", error);
+                text.textContent = "⚠️ " + error.message;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function updateCheckoutTotal() {
+
+            const locationElement = document.getElementById("location");
+            const addressElement = document.getElementById("address");
+
+            const location = locationElement ? locationElement.value : document.getElementById("checkoutLocation").value;
+            const address = addressElement ? addressElement.value : document.getElementById("checkoutAddress").value;
+            const selectedAddress = document.querySelector('input[name="selected_address"]:checked');
+            const selectedAddressId = selectedAddress ? selectedAddress.value : "";
+
+            calculateCheckoutDelivery(address, location, selectedAddressId);
+        }
+
+        function selectSavedAddress(option) {
+
+            const name = option.dataset.name || "";
+            const phone = option.dataset.phone || "";
+            const address = option.dataset.address || "";
+            const location = option.dataset.location || "";
+            const latitude = option.dataset.latitude || "";
+            const longitude = option.dataset.longitude || "";
+
+            document.getElementById("checkoutLatitude").value = latitude;
+            document.getElementById("checkoutLongitude").value = longitude;
+
+            document.getElementById("checkoutName").value = name;
+            document.getElementById("checkoutPhone").value = phone;
+            document.getElementById("checkoutAddress").value = address;
+            document.getElementById("checkoutLocation").value = location;
+            document.getElementById("selectedAddressId").value = option.value;
+
+            calculateCheckoutDelivery(address, location, option.value);
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+
+            const selected = document.querySelector('input[name="selected_address"]:checked');
+
+            if (selected) {
+                selectSavedAddress(selected);
+            } else {
+                updateCheckoutTotal();
+            }
+
+            updatePaymentInfo();
+            const currentProvider = document.getElementById("deliveryProvider")?.value || "Store Delivery";
+            setDeliveryProvider(currentProvider);
+        });
+
+    </script>
+
+</body>
+
+</html>

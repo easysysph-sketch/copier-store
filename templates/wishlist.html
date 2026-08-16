@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wishlist - CopierStore</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+    <style>
+        .wishlist-page{width:min(1180px,calc(100% - 36px));margin:auto;padding:38px 0 70px}
+        .wishlist-head{display:flex;justify-content:space-between;align-items:end;gap:20px;margin-bottom:24px}
+        .wishlist-head h1{font-size:clamp(28px,4vw,40px);letter-spacing:-1px}
+        .wishlist-head p{color:#64748b;margin-top:5px}
+        .wishlist-count{background:#eff6ff;color:#1d4ed8;border:1px solid #dbeafe;padding:9px 13px;border-radius:999px;font-size:12px;font-weight:900}
+        .wishlist-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
+        .wishlist-card{position:relative;background:#fff;border:1px solid #dce5ef;border-radius:18px;padding:14px;box-shadow:0 7px 22px rgba(15,23,42,.05);transition:.2s ease}
+        .wishlist-card:hover{transform:translateY(-4px);box-shadow:0 16px 35px rgba(15,23,42,.10)}
+        .wishlist-image{height:190px;border-radius:13px;background:linear-gradient(145deg,#f8fbff,#edf4fd);display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:14px}
+        .wishlist-image img{width:100%;height:100%;object-fit:contain;padding:15px}
+        .wishlist-card h3{font-size:15px;line-height:1.35;margin-bottom:6px}
+        .wishlist-price{font-size:19px;font-weight:950;color:#0f172a}
+        .wishlist-stock{font-size:11px;font-weight:850;margin-top:5px}
+        .wishlist-stock.in{color:#15803d}.wishlist-stock.out{color:#dc2626}
+        .wishlist-actions{display:grid;grid-template-columns:1fr 42px;gap:8px;margin-top:14px}
+        .wishlist-actions a,.wishlist-actions button{min-height:40px;border-radius:10px;border:1px solid #dce5ef;font-weight:850;cursor:pointer;text-decoration:none;display:grid;place-items:center}
+        .wishlist-view{background:#eff6ff;color:#1d4ed8}.wishlist-cart{background:#0f172a;color:#fff;border-color:#0f172a!important}
+        .wishlist-remove{position:absolute;right:13px;top:13px;width:36px;height:36px;border-radius:50%;border:1px solid #fecdd3;background:rgba(255,255,255,.95);color:#e11d48;font-size:18px;cursor:pointer;box-shadow:0 6px 15px rgba(15,23,42,.08)}
+        .wishlist-remove:hover{background:#fff1f2;transform:scale(1.05)}
+        .wishlist-empty{background:#fff;border:1px solid #dce5ef;border-radius:20px;padding:65px 25px;text-align:center;box-shadow:0 8px 25px rgba(15,23,42,.04)}
+        .wishlist-empty .icon{font-size:55px;color:#e11d48;margin-bottom:10px}.wishlist-empty p{color:#64748b;margin:7px 0 18px}
+        .wishlist-empty a{display:inline-flex;padding:11px 17px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-weight:850}
+        @media(max-width:900px){.wishlist-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        @media(max-width:560px){.wishlist-head{align-items:start;flex-direction:column}.wishlist-grid{grid-template-columns:1fr}}
+    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+</head>
+<body>
+<nav class="navbar">
+    <a href="/" class="logo">Copier<span>Store</span></a>
+    <div class="nav-links">
+        <a href="/">Shop</a>
+        <a href="/customer-dashboard">Dashboard</a>
+        <a href="/cart" class="cart-link">🛒 Cart</a>
+    </div>
+</nav>
+
+<main class="wishlist-page">
+    <header class="wishlist-head">
+        <div>
+            <h1>♡ My Wishlist</h1>
+            <p>Keep the copier supplies and machines you want close by.</p>
+        </div>
+        <div class="wishlist-count">{{ products|length }} saved</div>
+    </header>
+
+    {% if products %}
+    <div class="wishlist-grid">
+        {% for product in products %}
+        {% set price = product.base_price * (1 + product.markup / 100) %}
+        <article class="wishlist-card">
+            <form action="/wishlist/toggle/{{ product.id }}" method="POST">
+                <button class="wishlist-remove" type="submit" title="Remove from wishlist" aria-label="Remove {{ product.name }}">♥</button>
+            </form>
+            <a href="/product/{{ product.name }}" class="wishlist-image">
+                {% if product.image %}
+                    <img src="{{ url_for('static', filename='uploads/' + product.image) }}" alt="{{ product.name }}">
+                {% else %}
+                    <span style="font-size:52px">🖨️</span>
+                {% endif %}
+            </a>
+            <h3>{{ product.name }}</h3>
+            <div class="wishlist-price">₱{{ "{:,.2f}".format(price) }}</div>
+            {% if product.stock > 0 %}
+                <div class="wishlist-stock in">● {{ product.stock }} in stock</div>
+            {% else %}
+                <div class="wishlist-stock out">● Out of stock</div>
+            {% endif %}
+
+            <div class="wishlist-actions">
+                <a class="wishlist-view" href="/product/{{ product.name }}">View product</a>
+                {% if product.stock > 0 %}
+                <form action="/add-to-cart" method="POST">
+                    <input type="hidden" name="product" value="{{ product.name }}">
+                    <input type="hidden" name="price" value="{{ price }}">
+                    <input type="hidden" name="quantity" value="1">
+                    <button class="wishlist-cart" type="submit" title="Add to cart">🛒</button>
+                </form>
+                {% else %}
+                <button type="button" disabled title="Out of stock" style="background:#f1f5f9;color:#94a3b8;cursor:not-allowed;">×</button>
+                {% endif %}
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="wishlist-empty">
+        <div class="icon">♡</div>
+        <h2>Nothing saved yet</h2>
+        <p>Tap the heart on any product to save it here.</p>
+        <a href="/">Browse products</a>
+    </div>
+    {% endif %}
+</main>
+</body>
+</html>

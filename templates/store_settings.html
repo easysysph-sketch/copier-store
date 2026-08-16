@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Store Location | CopierStore</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+<style>
+:root{--blue:#2563eb;--navy:#0f172a;--text:#1f2937;--muted:#64748b;--line:#e2e8f0;--soft:#f8fafc;--green:#059669}
+*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:var(--text);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.page{max-width:1120px;margin:0 auto;padding:28px 22px 56px}.back{display:inline-flex;color:#64748b;text-decoration:none;font-weight:800;font-size:13px;margin-bottom:18px}.header{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:20px}.eyebrow{font-size:10px;font-weight:900;letter-spacing:1.4px;text-transform:uppercase;color:var(--blue)}h1{margin:5px 0 6px;font-size:34px;letter-spacing:-1px;color:var(--navy)}.header p{margin:0;color:var(--muted);font-size:13px;line-height:1.5}.saved{padding:9px 12px;border-radius:999px;background:#ecfdf5;color:#047857;font-size:11px;font-weight:900;border:1px solid #bbf7d0}.grid{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:18px}.card{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 30px rgba(15,23,42,.05);padding:20px}.card h2{font-size:16px;margin:0 0 5px;color:var(--navy)}.sub{font-size:11px;color:var(--muted);margin-bottom:17px}.field{margin-bottom:14px}.field label{display:block;font-size:11px;font-weight:900;color:#334155;margin-bottom:6px}.field input{width:100%;padding:12px 13px;border:1px solid #cbd5e1;border-radius:11px;font:inherit;font-size:13px;outline:none}.field input:focus{border-color:#93c5fd;box-shadow:0 0 0 3px #eff6ff}.coords{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:8px}.btn{border:0;border-radius:10px;padding:11px 14px;font-size:12px;font-weight:900;cursor:pointer}.primary{background:var(--blue);color:#fff}.secondary{background:#eff6ff;color:#1d4ed8}.ghost{background:#f8fafc;color:#475569;border:1px solid var(--line)}.search-row{display:flex;gap:8px}.search-row input{flex:1}.results{display:grid;gap:7px;margin-top:9px}.result{border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px;text-align:left;cursor:pointer}.result strong{display:block;font-size:11px;color:#334155}.result span{display:block;font-size:10px;color:#64748b;margin-top:2px}.map-wrap{overflow:hidden;border:1px solid var(--line);border-radius:14px;background:#f8fafc}.map{width:100%;height:360px;border:0;display:block}.pin-info{margin-top:12px;padding:12px;border-radius:12px;background:#f8fafc;border:1px solid var(--line);font-size:11px;color:#475569;line-height:1.5}.pin-info strong{color:#0f172a}.savebar{margin-top:16px;display:flex;justify-content:flex-end}.notice{padding:12px 14px;border-radius:12px;background:#eff6ff;border:1px solid #dbeafe;color:#1e40af;font-size:11px;line-height:1.5;margin-bottom:15px}@media(max-width:850px){.grid{grid-template-columns:1fr}.map{height:300px}}@media(max-width:520px){.page{padding:18px 12px 40px}.header{flex-direction:column}h1{font-size:28px}.coords{grid-template-columns:1fr}.search-row{flex-direction:column}.btn{width:100%}.actions{display:grid}.savebar .btn{width:100%}}
+</style>
+</head>
+<body>
+<main class="page">
+<a class="back" href="/admin">← Back to Admin Dashboard</a>
+<div class="header">
+  <div><div class="eyebrow">Store Configuration</div><h1>📍 Store Location</h1><p>Set the exact CopierStore pickup address and GPS pin. This location is used for distance-based delivery and Lalamove pickup routing.</p></div>
+  {% if saved %}<div class="saved">✓ Location saved</div>{% endif %}
+</div>
+<div class="grid">
+  <section class="card">
+    <h2>Shop address & GPS pin</h2>
+    <div class="sub">Search your shop, choose a result, or use the device GPS if you're physically at the store.</div>
+    <div class="notice">🔐 Only admins can change this. Customers' delivery distances are calculated from this saved pin.</div>
+    <form method="post" id="storeForm">
+      <div class="field"><label>Store name</label><input name="store_name" value="{{ settings.store_name }}" required></div>
+      <div class="field"><label>Full store address</label><input id="storeAddress" name="address" value="{{ settings.address }}" required></div>
+      <div class="field"><label>City / area</label><input id="storeLocation" name="location" value="{{ settings.location }}" required></div>
+      <div class="field">
+        <label>Find your shop</label>
+        <div class="search-row"><input id="placeSearch" placeholder="Search shop name, street, barangay..." autocomplete="off"><button class="btn secondary" type="button" onclick="searchPlace()">🔎 Search</button></div>
+        <div id="searchResults" class="results"></div>
+      </div>
+      <div class="coords">
+        <div class="field"><label>Latitude</label><input id="storeLat" name="latitude" value="{{ settings.latitude }}" required></div>
+        <div class="field"><label>Longitude</label><input id="storeLng" name="longitude" value="{{ settings.longitude }}" required></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" type="button" onclick="useCurrentLocation()">📡 Use current GPS location</button>
+        <button class="btn ghost" type="button" onclick="refreshMap()">🗺️ Preview pin</button>
+      </div>
+      <div class="savebar"><button class="btn primary" type="submit">💾 Save Store Location</button></div>
+    </form>
+  </section>
+  <aside class="card">
+    <h2>Map preview</h2>
+    <div class="sub">Make sure the pin is exactly on your shop before saving.</div>
+    <div class="map-wrap"><iframe id="storeMap" class="map" loading="lazy" title="Store location map"></iframe></div>
+    <div class="pin-info"><strong>📍 Current pin</strong><br><span id="pinText">{{ settings.latitude }}, {{ settings.longitude }}</span><br><br><strong>Used for:</strong> Store delivery distance, Lalamove pickup coordinates, and future courier calculations.</div>
+  </aside>
+</div>
+</main>
+<script>
+function mapUrl(lat,lng){
+  const d=0.006;
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${lng-d}%2C${lat-d}%2C${lng+d}%2C${lat+d}&layer=mapnik&marker=${lat}%2C${lng}`;
+}
+function refreshMap(){
+  const lat=parseFloat(document.getElementById('storeLat').value);
+  const lng=parseFloat(document.getElementById('storeLng').value);
+  if(!Number.isFinite(lat)||!Number.isFinite(lng)) return;
+  document.getElementById('storeMap').src=mapUrl(lat,lng);
+  document.getElementById('pinText').textContent=`${lat}, ${lng}`;
+}
+async function searchPlace(){
+  const q=document.getElementById('placeSearch').value.trim();
+  if(q.length<2) return;
+  const box=document.getElementById('searchResults');
+  box.innerHTML='<div style="font-size:11px;color:#64748b;padding:5px">Searching…</div>';
+  try{
+    const r=await fetch('/search-location?q='+encodeURIComponent(q));
+    const data=await r.json();
+    if(!data.success) throw new Error(data.message||'Search failed');
+    box.innerHTML='';
+    data.results.forEach(item=>{
+      const b=document.createElement('button'); b.type='button'; b.className='result';
+      b.innerHTML=`<strong>${escapeHtml(item.display_name)}</strong><span>${item.lat}, ${item.lon}</span>`;
+      b.onclick=()=>selectPlace(item); box.appendChild(b);
+    });
+    if(!data.results.length) box.innerHTML='<div style="font-size:11px;color:#64748b;padding:5px">No matching places found.</div>';
+  }catch(e){box.innerHTML='<div style="font-size:11px;color:#dc2626;padding:5px">Unable to search right now.</div>';}
+}
+function selectPlace(item){
+  document.getElementById('storeLat').value=item.lat;
+  document.getElementById('storeLng').value=item.lon;
+  document.getElementById('storeAddress').value=item.display_name;
+  const parts=item.display_name.split(',').map(x=>x.trim());
+  if(parts.length>=2) document.getElementById('storeLocation').value=parts[parts.length-3] || parts[parts.length-2] || document.getElementById('storeLocation').value;
+  document.getElementById('searchResults').innerHTML='';
+  refreshMap();
+}
+function useCurrentLocation(){
+  if(!navigator.geolocation){alert('This browser does not support GPS location.');return;}
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    const lat=pos.coords.latitude, lng=pos.coords.longitude;
+    document.getElementById('storeLat').value=lat.toFixed(7);
+    document.getElementById('storeLng').value=lng.toFixed(7);
+    refreshMap();
+    try{
+      const body=new URLSearchParams({latitude:lat,longitude:lng});
+      const r=await fetch('/reverse-geocode',{method:'POST',body}); const data=await r.json();
+      if(data.success){document.getElementById('storeAddress').value=data.address||document.getElementById('storeAddress').value; document.getElementById('storeLocation').value=data.location||document.getElementById('storeLocation').value;}
+    }catch(e){}
+  },()=>alert('GPS access was denied or unavailable. You can search the shop instead.'),{enableHighAccuracy:true,timeout:10000});
+}
+function escapeHtml(v){return String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+refreshMap();
+</script>
+</body>
+</html>

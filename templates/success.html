@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <title>Order Confirmed</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f7fb;
+            color: #1f2937;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .success-card {
+            background: white;
+            width: 100%;
+            max-width: 500px;
+            padding: 40px;
+            text-align: center;
+            border-radius: 16px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .success-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            margin-bottom: 12px;
+        }
+
+        p {
+            color: #6b7280;
+            margin-bottom: 25px;
+        }
+
+        .home-button {
+            display: inline-block;
+            padding: 12px 22px;
+            background: #2563eb;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .home-button:hover {
+            background: #1d4ed8;
+        }
+
+    </style>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+</head>
+
+<body>
+
+    <div class="success-card">
+
+        <div class="success-icon">
+            ✅
+        </div>
+
+        <h1>Order Confirmed!</h1>
+
+        <p>
+            Thank you for your order.
+            We have successfully received your request
+            and will contact you for delivery.
+        </p>
+
+        <a href="/" class="home-button">
+            ← Back to Store
+        </a>
+
+    </div>
+
+</body>
+</html>

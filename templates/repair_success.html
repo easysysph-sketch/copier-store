@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <title>Repair Request Submitted - CopierStore</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f7fb;
+            color: #1f2937;
+
+            min-height: 100vh;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            padding: 20px;
+        }
+
+        .card {
+            width: 100%;
+            max-width: 520px;
+
+            background: white;
+
+            border: 1px solid #e5e7eb;
+            border-radius: 20px;
+
+            padding: 40px;
+
+            text-align: center;
+
+            box-shadow: 0 10px 35px rgba(0,0,0,0.06);
+        }
+
+        .icon {
+            width: 75px;
+            height: 75px;
+
+            margin: 0 auto 20px;
+
+            border-radius: 50%;
+
+            background: #dcfce7;
+            color: #16a34a;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            font-size: 35px;
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .message {
+            color: #6b7280;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+
+        .request-box {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+
+            padding: 16px;
+
+            margin-bottom: 25px;
+        }
+
+        .request-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 5px;
+        }
+
+        .request-id {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2563eb;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .button {
+            flex: 1;
+
+            padding: 13px;
+
+            border-radius: 9px;
+
+            text-decoration: none;
+
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .primary {
+            background: #2563eb;
+            color: white;
+        }
+
+        .primary:hover {
+            background: #1d4ed8;
+        }
+
+        .secondary {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .secondary:hover {
+            background: #e5e7eb;
+        }
+
+        @media (max-width: 500px) {
+
+            .card {
+                padding: 28px 20px;
+            }
+
+            .buttons {
+                flex-direction: column;
+            }
+
+        }
+
+    </style>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+</head>
+
+<body>
+
+    <div class="card">
+
+        <div class="icon">
+            ✓
+        </div>
+
+        <h1>
+            Repair Request Submitted!
+        </h1>
+
+        <p class="message">
+            Thank you! Your repair request has been successfully
+            submitted. CopierStore will review your request and
+            contact you soon.
+        </p>
+
+        <div class="request-box">
+
+            <div class="request-label">
+                REPAIR REQUEST ID
+            </div>
+
+            <div class="request-id">
+                #{{ request_id }}
+            </div>
+
+        </div>
+
+        <div class="buttons">
+
+            <a href="/customer-dashboard" class="button primary">
+                📋 View My Requests
+            </a>
+
+            <a href="/" class="button secondary">
+                ← Back to Store
+            </a>
+
+        </div>
+
+    </div>
+
+</body>
+</html>

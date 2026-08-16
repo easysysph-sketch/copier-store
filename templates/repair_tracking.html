@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Repair Tracking - CopierStore</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f7fb;
+            color: #1f2937;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: auto;
+            padding: 40px 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 35px;
+            border-radius: 18px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.04);
+        }
+
+        h1 {
+            font-size: 30px;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #6b7280;
+            margin-bottom: 30px;
+        }
+
+        .request-number {
+            background: #eff6ff;
+            color: #1d4ed8;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: bold;
+            margin-bottom: 25px;
+        }
+
+        .details {
+            margin-bottom: 30px;
+        }
+
+        .details p {
+            margin-bottom: 8px;
+        }
+
+        .timeline {
+            border-left: 3px solid #e5e7eb;
+            padding-left: 25px;
+        }
+
+        .step {
+            position: relative;
+            margin-bottom: 28px;
+        }
+
+        .step::before {
+            content: "";
+            position: absolute;
+            left: -34px;
+            top: 2px;
+            width: 15px;
+            height: 15px;
+            background: #d1d5db;
+            border-radius: 50%;
+        }
+
+        .step.active::before {
+            background: #2563eb;
+        }
+
+        .step h3 {
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+
+        .step p {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .back {
+            display: inline-block;
+            margin-top: 10px;
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .error {
+            color: #dc2626;
+            font-weight: bold;
+            margin-top: 15px;
+        }
+
+    </style>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <div class="card">
+
+            <h1>🔧 Repair Tracking</h1>
+
+            <p class="subtitle">
+                Track the progress of your repair request.
+            </p>
+
+            {% if request %}
+
+                <div class="request-number">
+                    Repair Request #{{ request.id }}
+                </div>
+
+                <div class="details">
+
+                    <p>
+                        <strong>Machine:</strong>
+                        {{ request.machine }}
+                    </p>
+
+                    <p>
+                        <strong>Service Date:</strong>
+                        {{ request.service_date }}
+                    </p>
+
+                    <p>
+                        <strong>Current Status:</strong>
+                        {{ request.status }}
+                    </p>
+
+                </div>
+
+                <div class="timeline">
+
+                    <div class="step active">
+                        <h3>📋 Request Received</h3>
+                        <p>Your repair request has been received.</p>
+                    </div>
+
+
+                    <div class="step
+                        {% if request.status in ['Inspection', 'Repairing', 'Ready for Delivery', 'Completed'] %}
+                            active
+                        {% endif %}
+                    ">
+                        <h3>🔍 Inspection</h3>
+                        <p>Your machine is being inspected.</p>
+                    </div>
+
+
+                    <div class="step
+                        {% if request.status in ['Repairing', 'Ready for Delivery', 'Completed'] %}
+                            active
+                        {% endif %}
+                    ">
+                        <h3>🔧 Repairing</h3>
+                        <p>Your machine is currently being repaired.</p>
+                    </div>
+
+
+                    <div class="step
+                        {% if request.status in ['Ready for Delivery', 'Completed'] %}
+                            active
+                        {% endif %}
+                    ">
+                        <h3>📦 Ready for Delivery</h3>
+                        <p>Your machine is ready to be returned.</p>
+                    </div>
+
+
+                    <div class="step
+                        {% if request.status == 'Completed' %}
+                            active
+                        {% endif %}
+                    ">
+                        <h3>✅ Completed</h3>
+                        <p>Your repair service has been completed.</p>
+                    </div>
+
+                </div>
+            {% else %}
+
+                <p class="error">
+                    Repair request not found.
+                </p>
+
+            {% endif %}
+
+            <a href="/" class="back">
+                ← Back to Store
+            </a>
+
+        </div>
+
+    </div>
+
+</body>
+
+</html>

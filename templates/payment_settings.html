@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Payment Settings - CopierStore</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f7fb;
+            color: #172033;
+        }
+
+        /* =========================
+           LAYOUT
+        ========================= */
+
+        .app {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* =========================
+           SIDEBAR
+        ========================= */
+
+        .sidebar {
+            width: 220px;
+            background: white;
+            border-right: 1px solid #e5e7eb;
+            padding: 22px 14px;
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 0 12px 28px;
+            font-size: 21px;
+            font-weight: 900;
+        }
+
+        .brand-icon {
+            font-size: 23px;
+        }
+
+        .brand span {
+            color: #2563eb;
+        }
+
+        .section-title {
+            font-size: 10px;
+            color: #8a94a6;
+            font-weight: 800;
+            letter-spacing: 1px;
+            margin: 18px 12px 8px;
+            text-transform: uppercase;
+        }
+
+        .nav {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .nav a {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            color: #4b5563;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .nav a:hover {
+            background: #f3f6fc;
+            color: #2563eb;
+        }
+
+        .nav a.active {
+            background: #eaf2ff;
+            color: #2563eb;
+        }
+
+        .nav-icon {
+            width: 18px;
+            text-align: center;
+        }
+
+        /* =========================
+           MAIN
+        ========================= */
+
+        .main {
+            margin-left: 220px;
+            width: calc(100% - 220px);
+            min-height: 100vh;
+        }
+
+        .topbar {
+            height: 54px;
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 28px;
+        }
+
+        .menu-icon {
+            font-size: 18px;
+            color: #4b5563;
+        }
+
+        .admin {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+        }
+
+        .admin-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #2563eb;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .admin-info strong {
+            display: block;
+            font-size: 11px;
+        }
+
+        .admin-info span {
+            color: #8a94a6;
+            font-size: 10px;
+        }
+
+        /* =========================
+           CONTENT
+        ========================= */
+
+        .content {
+            max-width: 950px;
+            margin: auto;
+            padding: 34px 30px 45px;
+        }
+
+        .eyebrow {
+            color: #2563eb;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: 1.8px;
+            text-transform: uppercase;
+            margin-bottom: 7px;
+        }
+
+        .page-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 27px;
+            margin-bottom: 5px;
+        }
+
+        .page-title-icon {
+            width: 34px;
+            height: 34px;
+            background: #eaf2ff;
+            color: #2563eb;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .subtitle {
+            color: #6b7280;
+            font-size: 13px;
+            margin-bottom: 16px;
+        }
+
+        /* =========================
+           INFO BOX
+        ========================= */
+
+        .info-box {
+            background: #eef5ff;
+            border: 1px solid #cfe0ff;
+            border-radius: 8px;
+            padding: 11px 13px;
+            color: #1854b4;
+            font-size: 11px;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+
+        .info-box strong {
+            color: #1251b5;
+        }
+
+        /* =========================
+           PAYMENT CARD
+        ========================= */
+
+        .payment-card {
+            background: white;
+            border: 1px solid #e3e8ef;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        }
+
+        .payment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 13px;
+        }
+
+        .payment-title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .payment-icon {
+            width: 27px;
+            height: 27px;
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 13px;
+        }
+
+        .gcash-icon {
+            background: #2563eb;
+        }
+
+        .bank-icon {
+            background: #4f46e5;
+        }
+
+        .cod-icon {
+            background: #22c55e;
+        }
+
+        .payment-title {
+            font-size: 14px;
+            font-weight: 900;
+        }
+
+        .payment-description {
+            color: #7b8493;
+            font-size: 10px;
+            margin-top: 2px;
+        }
+
+        /* =========================
+           TOGGLE
+        ========================= */
+
+        .toggle-wrap {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .enabled-text {
+            color: #16a34a;
+            font-size: 10px;
+            font-weight: 800;
+        }
+
+        .switch {
+            position: relative;
+            width: 28px;
+            height: 17px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: #cbd5e1;
+            border-radius: 20px;
+            transition: .2s;
+        }
+
+        .slider:before {
+            content: "";
+            position: absolute;
+            width: 13px;
+            height: 13px;
+            left: 2px;
+            top: 2px;
+            background: white;
+            border-radius: 50%;
+            transition: .2s;
+            box-shadow: 0 1px 2px rgba(0,0,0,.2);
+        }
+
+        .switch input:checked + .slider {
+            background: #2563eb;
+        }
+
+        .switch input:checked + .slider:before {
+            transform: translateX(11px);
+        }
+
+        /* =========================
+           FIELDS
+        ========================= */
+
+        .fields {
+            display: grid;
+            gap: 10px;
+        }
+
+        .fields.two {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .fields.three {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        .field label {
+            display: block;
+            font-size: 10px;
+            font-weight: 800;
+            margin-bottom: 5px;
+        }
+
+        .input-wrap {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 9px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #8b95a5;
+            font-size: 11px;
+        }
+
+        .field input {
+            width: 100%;
+            height: 31px;
+            border: 1px solid #d9e0e8;
+            border-radius: 6px;
+            padding: 0 9px 0 27px;
+            font-size: 11px;
+            color: #374151;
+            outline: none;
+        }
+
+        .field input:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 2px rgba(37,99,235,.08);
+        }
+
+        .helper {
+            font-size: 9px;
+            color: #8a94a6;
+            margin-top: 4px;
+        }
+
+        /* =========================
+           TIP BOX
+        ========================= */
+
+        .tip {
+            margin-top: 9px;
+            border-radius: 7px;
+            padding: 8px 10px;
+            font-size: 10px;
+            line-height: 1.4;
+        }
+
+        .tip.green {
+            background: #ecfdf3;
+            border: 1px solid #c8f1d7;
+            color: #15803d;
+        }
+
+        .tip.blue {
+            background: #eef5ff;
+            border: 1px solid #d3e3ff;
+            color: #1d4ed8;
+        }
+
+        /* =========================
+           BUTTONS
+        ========================= */
+
+        .actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        .button {
+            height: 31px;
+            padding: 0 14px;
+            border-radius: 6px;
+            border: 1px solid #dce2e9;
+            background: white;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .button:hover {
+            background: #f8fafc;
+        }
+
+        .button.primary {
+            background: #2563eb;
+            border-color: #2563eb;
+            color: white;
+        }
+
+        .button.primary:hover {
+            background: #1d4ed8;
+        }
+
+        /* =========================
+           SUCCESS
+        ========================= */
+
+        .success {
+            background: #dcfce7;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+            padding: 10px 12px;
+            border-radius: 7px;
+            margin-bottom: 12px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        /* =========================
+           MOBILE
+        ========================= */
+
+        @media (max-width: 800px) {
+
+            .sidebar {
+                width: 65px;
+            }
+
+            .brand {
+                justify-content: center;
+                padding-left: 0;
+                padding-right: 0;
+            }
+
+            .brand span,
+            .brand-text,
+            .section-title,
+            .nav a span:last-child {
+                display: none;
+            }
+
+            .nav a {
+                justify-content: center;
+            }
+
+            .main {
+                margin-left: 65px;
+                width: calc(100% - 65px);
+            }
+
+            .fields.two,
+            .fields.three {
+                grid-template-columns: 1fr;
+            }
+
+            .content {
+                padding: 25px 15px;
+            }
+
+        }
+
+        @media (max-width: 500px) {
+
+            .topbar {
+                padding: 0 15px;
+            }
+
+            .page-title {
+                font-size: 23px;
+            }
+
+            .payment-card {
+                padding: 13px;
+            }
+
+            .payment-header {
+                align-items: flex-start;
+            }
+
+        }
+
+    </style>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+</head>
+
+
+<body>
+
+<div class="app">
+
+    <!-- =========================
+         SIDEBAR
+    ========================== -->
+
+    <aside class="sidebar">
+
+        <div class="brand">
+            <span class="brand-icon">📠</span>
+            <span class="brand-text">Copier<span>Store</span></span>
+        </div>
+
+
+        <div class="section-title">
+            Main
+        </div>
+
+        <nav class="nav">
+
+            <a href="/admin">
+                <span class="nav-icon">⌂</span>
+                <span>Dashboard</span>
+            </a>
+
+        </nav>
+
+
+        <div class="section-title">
+            Store Management
+        </div>
+
+        <nav class="nav">
+
+            <a href="/admin/products">
+                <span class="nav-icon">◇</span>
+                <span>Products</span>
+            </a>
+
+            <a href="/orders">
+                <span class="nav-icon">🏷</span>
+                <span>Orders</span>
+            </a>
+
+        </nav>
+
+
+        <div class="section-title">
+            Customers
+        </div>
+
+        <nav class="nav">
+
+        </nav>
+
+
+        <div class="section-title">
+            Store Settings
+        </div>
+
+        <nav class="nav">
+
+            <a href="/admin/payment-settings" class="active">
+                <span class="nav-icon">▣</span>
+                <span>Payment Settings</span>
+            </a>
+
+        </nav>
+
+    </aside>
+
+
+    <!-- =========================
+         MAIN
+    ========================== -->
+
+    <main class="main">
+
+
+        <header class="topbar">
+
+            <div class="menu-icon">
+                ☰
+            </div>
+
+            <div class="admin">
+
+                <div class="admin-avatar">
+                    AD
+                </div>
+
+                <div class="admin-info">
+                    <strong>Admin</strong>
+                    <span>Administrator</span>
+                </div>
+
+            </div>
+
+        </header>
+
+
+        <div class="content">
+
+
+            <div class="eyebrow">
+                Store Configuration
+            </div>
+
+
+            <h1 class="page-title">
+
+                <span class="page-title-icon">
+                    💳
+                </span>
+
+                Payment Settings
+
+            </h1>
+
+
+            <p class="subtitle">
+                Manage the payment methods and account details customers see at checkout.
+            </p>
+
+
+            {% if saved %}
+
+                <div class="success">
+                    ✓ Payment settings saved successfully.
+                </div>
+
+            {% endif %}
+
+
+            <div class="info-box">
+
+                <strong>ⓘ</strong>
+                These details are shown to customers when they choose GCash or Bank Transfer at checkout.
+                Keep them updated whenever the business changes its payment account.
+
+            </div>
+
+
+            <form
+                action="/admin/payment-settings"
+                method="POST"
+            >
+
+
+                <!-- =========================
+                     GCASH
+                ========================== -->
+
+                <div class="payment-card">
+
+                    <div class="payment-header">
+
+                        <div class="payment-title-wrap">
+
+                            <div class="payment-icon gcash-icon">
+                                G
+                            </div>
+
+                            <div>
+
+                                <div class="payment-title">
+                                    GCash
+                                </div>
+
+                                <div class="payment-description">
+                                    Receive payments via GCash
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="toggle-wrap">
+
+                            <span class="enabled-text">
+                                {% if settings.gcash_enabled %}
+                                    Enabled
+                                {% else %}
+                                    Disabled
+                                {% endif %}
+                            </span>
+
+                            <label class="switch">
+
+                                <input
+                                    type="checkbox"
+                                    name="gcash_enabled"
+                                    {% if settings.gcash_enabled %}checked{% endif %}
+                                >
+
+                                <span class="slider"></span>
+
+                            </label>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="fields two">
+
+
+                        <div class="field">
+
+                            <label>
+                                GCash Number
+                            </label>
+
+                            <div class="input-wrap">
+
+                                <span class="input-icon">
+                                    ▣
+                                </span>
+
+                                <input
+                                    type="text"
+                                    name="gcash_number"
+                                    value="{{ settings.gcash_number or '' }}"
+                                    placeholder="09XXXXXXXXX"
+                                >
+
+                            </div>
+
+                            <div class="helper">
+                                Your GCash mobile number
+                            </div>
+
+                        </div>
+
+
+                        <div class="field">
+
+                            <label>
+                                Account Name
+                            </label>
+
+                            <div class="input-wrap">
+
+                                <span class="input-icon">
+                                    ♙
+                                </span>
+
+                                <input
+                                    type="text"
+                                    name="gcash_name"
+                                    value="{{ settings.gcash_name or '' }}"
+                                    placeholder="Account holder name"
+                                >
+
+                            </div>
+
+                            <div class="helper">
+                                Name registered to your GCash account
+                            </div>
+
+                        </div>
+
+
+                    </div>
+
+
+                    <div class="tip green">
+
+                        💡 <strong>Tip:</strong>
+                        Make sure your GCash account allows receiving payments.
+
+                    </div>
+
+                </div>
+
+
+                <!-- =========================
+                     BANK TRANSFER
+                ========================== -->
+
+                <div class="payment-card">
+
+                    <div class="payment-header">
+
+                        <div class="payment-title-wrap">
+
+                            <div class="payment-icon bank-icon">
+                                🏦
+                            </div>
+
+                            <div>
+
+                                <div class="payment-title">
+                                    Bank Transfer
+                                </div>
+
+                                <div class="payment-description">
+                                    Receive payments via bank transfer
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="toggle-wrap">
+
+                            <span class="enabled-text">
+                                {% if settings.bank_enabled %}
+                                    Enabled
+                                {% else %}
+                                    Disabled
+                                {% endif %}
+                            </span>
+
+                            <label class="switch">
+
+                                <input
+                                    type="checkbox"
+                                    name="bank_enabled"
+                                    {% if settings.bank_enabled %}checked{% endif %}
+                                >
+
+                                <span class="slider"></span>
+
+                            </label>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="fields three">
+
+
+                        <div class="field">
+
+                            <label>
+                                Bank Name
+                            </label>
+
+                            <div class="input-wrap">
+
+                                <span class="input-icon">
+                                    🏦
+                                </span>
+
+                                <input
+                                    type="text"
+                                    name="bank_name"
+                                    value="{{ settings.bank_name or '' }}"
+                                    placeholder="e.g. BDO, BPI, Metrobank"
+                                >
+
+                            </div>
+
+                            <div class="helper">
+                                Example: BDO Unibank
+                            </div>
+
+                        </div>
+
+
+                        <div class="field">
+
+                            <label>
+                                Account Name
+                            </label>
+
+                            <div class="input-wrap">
+
+                                <span class="input-icon">
+                                    ♙
+                                </span>
+
+                                <input
+                                    type="text"
+                                    name="bank_account_name"
+                                    value="{{ settings.bank_account_name or '' }}"
+                                    placeholder="Account holder name"
+                                >
+
+                            </div>
+
+                            <div class="helper">
+                                Account name as shown in the bank
+                            </div>
+
+                        </div>
+
+
+                        <div class="field">
+
+                            <label>
+                                Account Number
+                            </label>
+
+                            <div class="input-wrap">
+
+                                <span class="input-icon">
+                                    ▤
+                                </span>
+
+                                <input
+                                    type="text"
+                                    name="bank_account_number"
+                                    value="{{ settings.bank_account_number or '' }}"
+                                    placeholder="Bank account number"
+                                >
+
+                            </div>
+
+                            <div class="helper">
+                                Your bank account number
+                            </div>
+
+                        </div>
+
+
+                    </div>
+
+
+                    <div class="tip blue">
+
+                        ⓘ Customers will use these details to send payments via bank transfer.
+
+                    </div>
+
+                </div>
+
+
+                <!-- =========================
+                     COD
+                ========================== -->
+
+                <div class="payment-card">
+
+                    <div class="payment-header">
+
+                        <div class="payment-title-wrap">
+
+                            <div class="payment-icon cod-icon">
+                                ₱
+                            </div>
+
+                            <div>
+
+                                <div class="payment-title">
+                                    Cash on Delivery (COD)
+                                </div>
+
+                                <div class="payment-description">
+                                    Allow customers to pay when the order is delivered
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="toggle-wrap">
+
+                            <span class="enabled-text">
+                                {% if settings.cod_enabled %}
+                                    Enabled
+                                {% else %}
+                                    Disabled
+                                {% endif %}
+                            </span>
+
+                            <label class="switch">
+
+                                <input
+                                    type="checkbox"
+                                    name="cod_enabled"
+                                    {% if settings.cod_enabled %}checked{% endif %}
+                                >
+
+                                <span class="slider"></span>
+
+                            </label>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="tip green">
+
+                        ✓ COD is enabled. Customers can choose Cash on Delivery at checkout.
+
+                    </div>
+
+                </div>
+
+
+                <!-- =========================
+                     ACTIONS
+                ========================== -->
+
+                <div class="actions">
+
+                    <button
+                        type="reset"
+                        class="button"
+                    >
+                        ↶ Reset
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="button primary"
+                    >
+                        💾 Save Changes
+                    </button>
+
+                </div>
+
+
+            <div class="payment-card" style="margin-top:16px;">
+    <div class="payment-header">
+        <div>
+            <div class="payment-title">🛡️ COD Security Deposit</div>
+            <div class="payment-description">Require a small online deposit before COD orders are dispatched.</div>
+        </div>
+    </div>
+    <div class="tip blue">The deposit helps protect the store from refused COD parcels. The remaining balance is collected on delivery.</div>
+    <div style="display:grid;grid-template-columns:1fr 180px;gap:14px;margin-top:15px;">
+        <label style="display:flex;align-items:center;gap:8px;">
+            <input type="checkbox" name="cod_deposit_enabled"
+                {% if settings.cod_deposit_enabled %}checked{% endif %}>
+            Require COD security deposit
+        </label>
+        <input type="number" name="cod_deposit_amount" min="0" step="1"
+            value="{{ settings.cod_deposit_amount or 100 }}"
+            placeholder="100">
+    </div>
+</div>
+
+</form>
+
+
+        </div>
+
+    </main>
+
+</div>
+
+</body>
+
+</html>
