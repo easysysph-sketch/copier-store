@@ -361,6 +361,16 @@ def init_db():
             password TEXT NOT NULL
         )
     """)
+    # Admin credentials are created lazily on the first successful
+    # environment-based login. The table itself must exist on a fresh
+    # production database so /login never fails before that first login.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS admin_credentials (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            username TEXT NOT NULL,
+            password_hash TEXT NOT NULL
+        )
+    """)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS repair_requests (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
