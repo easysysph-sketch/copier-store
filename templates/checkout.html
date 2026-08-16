@@ -1118,6 +1118,13 @@
                                     The remaining balance is paid upon delivery.
                                 </small>
 
+                                <div class="cod-deposit-payment-info" style="margin-top:12px;padding:12px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0;">
+                                    <strong style="display:block;margin-bottom:6px;">📱 Send the security deposit via GCash</strong>
+                                    <div class="payment-account">GCash Number: <strong>{{ payment_settings.gcash_number or "Not configured" }}</strong></div>
+                                    <div class="payment-account">Account Name: <strong>{{ payment_settings.gcash_name or "Not configured" }}</strong></div>
+                                    <small style="display:block;margin-top:6px;">Send exactly the deposit amount shown above, then enter the reference number and upload your payment proof below.</small>
+                                </div>
+
                                 <label for="codDepositReference" style="margin-top:10px;">
                                     GCash Reference Number
                                 </label>
