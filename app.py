@@ -489,8 +489,19 @@ def init_db():
     # Delivery provider / Lalamove metadata. Safe migrations for existing orders.
     for column_sql in [
         "ALTER TABLE orders ADD COLUMN delivery_provider TEXT DEFAULT 'Standard Delivery'",
-        "ALTER TABLE orders ADD COLUMN lalamove_quotation_id TEXT",
         "ALTER TABLE orders ADD COLUMN delivery_status TEXT DEFAULT 'Not Booked'",
+        "ALTER TABLE orders ADD COLUMN delivery_latitude REAL",
+        "ALTER TABLE orders ADD COLUMN delivery_longitude REAL",
+        "ALTER TABLE orders ADD COLUMN lalamove_quotation_id TEXT",
+        "ALTER TABLE orders ADD COLUMN lalamove_quotation_expires_at TEXT",
+        "ALTER TABLE orders ADD COLUMN lalamove_order_id TEXT",
+        "ALTER TABLE orders ADD COLUMN lalamove_driver_id TEXT",
+        "ALTER TABLE orders ADD COLUMN lalamove_driver_name TEXT",
+        "ALTER TABLE orders ADD COLUMN lalamove_driver_phone TEXT",
+        "ALTER TABLE orders ADD COLUMN lalamove_driver_plate TEXT",
+        "ALTER TABLE orders ADD COLUMN lalamove_sharelink TEXT",
+        "ALTER TABLE orders ADD COLUMN lalamove_status TEXT",
+        "ALTER TABLE orders ADD COLUMN lalamove_last_synced_at TEXT",
         "ALTER TABLE orders ADD COLUMN manual_courier_name TEXT",
         "ALTER TABLE orders ADD COLUMN manual_tracking_number TEXT",
         "ALTER TABLE orders ADD COLUMN manual_tracking_url TEXT",
@@ -3167,9 +3178,33 @@ def admin_forgot_password():
     security_log("admin_password_reset", "Administrator password reset through recovery key", "admin", username)
     return render_template("admin_forgot_password.html", success="Admin password reset successfully. You can now log in with the new password.")
 
-@app.route("/admin/order/<int:order_id>/delivery-details")
+@app.route("/admin/order/<int:order_id>/delivery-details", methods=["GET", "POST"])
 def admin_delivery_details(order_id):
     if not session.get("admin_logged_in"): return redirect("/login")
+    if request.method == "POST":
+        manual_courier_name = (request.form.get("manual_courier_name") or "").strip()[:120]
+        manual_tracking_number = (request.form.get("manual_tracking_number") or "").strip()[:120]
+        manual_tracking_url = (request.form.get("manual_tracking_url") or "").strip()[:500]
+        try:
+            actual_fee = float(request.form.get("actual_courier_fee")) if request.form.get("actual_courier_fee") else None
+        except ValueError:
+            return "Invalid actual courier fee.", 400
+        status = (request.form.get("delivery_status") or "Awaiting Manual Courier Assignment").strip()
+        allowed = {"Awaiting Manual Courier Assignment", "Courier Assigned", "Picked Up", "In Transit", "Out for Delivery", "Delivered"}
+        if status not in allowed:
+            return "Invalid delivery status.", 400
+        conn=sqlite3.connect("orders.db")
+        row=conn.execute("SELECT delivery_fee FROM orders WHERE id=?", (order_id,)).fetchone()
+        if not row:
+            conn.close(); return "Order not found",404
+        estimate=float(row[0] or 0)
+        difference=round(estimate-(actual_fee if actual_fee is not None else estimate),2) if actual_fee is not None else 0.0
+        conn.execute("""UPDATE orders SET manual_courier_name=?, manual_tracking_number=?, manual_tracking_url=?, actual_courier_fee=?, courier_fee_difference=?, courier_fee_adjustment_status=?, courier_fee_adjustment_note=?, delivery_status=? WHERE id=?""", (
+            manual_courier_name, manual_tracking_number, manual_tracking_url, actual_fee, difference,
+            (request.form.get("courier_fee_adjustment_status") or "Pending Review"),
+            (request.form.get("courier_fee_adjustment_note") or "").strip()[:1000], status, order_id))
+        conn.commit(); conn.close()
+        return redirect(f"/admin/order/{order_id}/delivery-details")
     conn=sqlite3.connect("orders.db"); conn.row_factory=sqlite3.Row
     order=conn.execute("SELECT * FROM orders WHERE id=?",(order_id,)).fetchone(); conn.close()
     if not order: return "Order not found",404
@@ -3249,6 +3284,7 @@ def _lalamove_quote(address, latitude, longitude):
             "quotation_id": data.get("quotationId"),
             "expires_at": data.get("expiresAt"),
             "distance": data.get("distance"),
+            "stops": data.get("stops") or [],
         }
     except urllib.error.HTTPError as exc:
         try:
@@ -3279,6 +3315,253 @@ def lalamove_quote():
     if not result_ok:
         return jsonify({"success": False, "message": result, "shipping_specs": shipping_specs}), 400
     return jsonify({"success": True, "shipping_specs": shipping_specs, **result})
+
+
+def _lalamove_phone(phone):
+    """Normalize a Philippine phone number to the E.164-style form Lalamove expects."""
+    raw = re.sub(r"[^0-9+]", "", str(phone or "").strip())
+    if raw.startswith("+63"):
+        return raw
+    if raw.startswith("63") and len(raw) >= 12:
+        return "+" + raw
+    if raw.startswith("0") and len(raw) >= 10:
+        return "+63" + raw[1:]
+    return raw
+
+
+def _lalamove_request(method, path, body_obj=None):
+    """Authenticated Lalamove v3 request using the configured sandbox/production host."""
+    api_key = (os.environ.get("LALAMOVE_API_KEY") or "").strip()
+    api_secret = (os.environ.get("LALAMOVE_API_SECRET") or "").strip()
+    if not api_key or not api_secret:
+        return False, "Lalamove is not configured yet."
+    market = (os.environ.get("LALAMOVE_MARKET") or "PH").strip().upper()
+    env = (os.environ.get("LALAMOVE_ENV") or "production").strip().lower()
+    host = "rest.sandbox.lalamove.com" if env in {"sandbox", "test"} else "rest.lalamove.com"
+    body = json.dumps(body_obj, separators=(",", ":"), ensure_ascii=False) if body_obj is not None else ""
+    timestamp = str(int(time.time() * 1000))
+    raw = f"{timestamp}\r\n{method.upper()}\r\n{path}\r\n\r\n{body}"
+    signature = hmac.new(api_secret.encode("utf-8"), raw.encode("utf-8"), hashlib.sha256).hexdigest()
+    token = f"{api_key}:{timestamp}:{signature}"
+    req = urllib.request.Request(
+        f"https://{host}{path}",
+        data=body.encode("utf-8") if body else None,
+        method=method.upper(),
+        headers={
+            "Authorization": f"hmac {token}",
+            "Content-Type": "application/json",
+            "Market": market,
+            "Request-ID": str(uuid.uuid4()),
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=12) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        return True, payload.get("data") or payload
+    except urllib.error.HTTPError as exc:
+        try:
+            payload = json.loads(exc.read().decode("utf-8"))
+            detail = payload.get("message") or payload.get("error") or payload
+        except Exception:
+            detail = None
+        return False, detail or f"Lalamove request failed ({exc.code})."
+    except Exception as exc:
+        app.logger.warning("Lalamove request failed: %r", exc)
+        return False, "Lalamove is temporarily unavailable. Please try again."
+
+
+def _map_lalamove_status(status):
+    mapping = {
+        "ASSIGNING_DRIVER": "Finding Courier",
+        "ON_GOING": "Courier Assigned",
+        "PICKED_UP": "Picked Up",
+        "COMPLETED": "Delivered",
+        "CANCELED": "Cancelled",
+        "REJECTED": "Courier Rejected",
+        "EXPIRED": "Expired",
+    }
+    return mapping.get(str(status or "").upper(), str(status or "Not Booked").replace("_", " ").title())
+
+
+def _save_lalamove_order_sync(order_id, data):
+    status = str(data.get("status") or "").upper()
+    driver_id = data.get("driverId") or None
+    sharelink = data.get("sharelink") or data.get("shareLink") or None
+    delivery_status = _map_lalamove_status(status)
+    conn = sqlite3.connect("orders.db")
+    try:
+        previous = conn.execute("SELECT customer_id, lalamove_status FROM orders WHERE id=?", (order_id,)).fetchone()
+        conn.execute("""
+            UPDATE orders SET
+                lalamove_order_id = COALESCE(?, lalamove_order_id),
+                lalamove_quotation_id = COALESCE(?, lalamove_quotation_id),
+                lalamove_driver_id = COALESCE(?, lalamove_driver_id),
+                lalamove_sharelink = COALESCE(?, lalamove_sharelink),
+                lalamove_status = ?,
+                delivery_status = ?,
+                lalamove_last_synced_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (
+            data.get("orderId"), data.get("quotationId"), driver_id, sharelink,
+            status or None, delivery_status, order_id
+        ))
+        if previous and status and status != (previous[1] or "") and previous[0]:
+            conn.execute(
+                "INSERT INTO notifications (customer_id, message) VALUES (?, ?)",
+                (previous[0], f"🚚 Order #{order_id} Lalamove delivery status: {delivery_status}."),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _fetch_lalamove_driver(order_id, lalamove_order_id, driver_id):
+    if not lalamove_order_id or not driver_id:
+        return False, "Driver details are not available yet."
+    ok, data = _lalamove_request("GET", f"/v3/orders/{lalamove_order_id}/drivers/{driver_id}")
+    if not ok:
+        return False, data
+    conn = sqlite3.connect("orders.db")
+    try:
+        conn.execute("""
+            UPDATE orders SET
+                lalamove_driver_name = ?,
+                lalamove_driver_phone = ?,
+                lalamove_driver_plate = ?
+            WHERE id = ?
+        """, (data.get("name"), data.get("phone"), data.get("plateNumber"), order_id))
+        conn.commit()
+    finally:
+        conn.close()
+    return True, data
+
+
+@app.route("/admin/order/<int:order_id>/lalamove/book", methods=["POST"])
+def admin_lalamove_book(order_id):
+    if not session.get("admin_logged_in"):
+        return redirect("/login")
+    conn = sqlite3.connect("orders.db")
+    conn.row_factory = sqlite3.Row
+    order = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
+    conn.close()
+    if not order:
+        return "Order not found", 404
+    if order["delivery_provider"] != "Lalamove":
+        return "This order is not using Lalamove delivery.", 400
+    if order["status"] == "Cancelled":
+        return "Cancelled orders cannot be booked for delivery.", 400
+    if order["lalamove_order_id"]:
+        return redirect(f"/admin/order/{order_id}/delivery-details")
+    if order["delivery_latitude"] is None or order["delivery_longitude"] is None:
+        return "This order does not have a GPS delivery pin. Ask the customer to use a saved address with an exact pin.", 400
+
+    quote_ok, quote = _lalamove_quote(order["address"], order["delivery_latitude"], order["delivery_longitude"])
+    if not quote_ok:
+        return str(quote), 400
+    quotation_id = quote.get("quotation_id")
+    stops = quote.get("stops") or []
+    dropoff = stops[-1] if stops else {}
+    stop_id = dropoff.get("stopId") or dropoff.get("id")
+    if not quotation_id or not stop_id:
+        return "Lalamove did not return a usable quotation stop. Please request another quote.", 400
+
+    pickup_name = (os.environ.get("LALAMOVE_PICKUP_NAME") or "CopierStore").strip()
+    pickup_phone = _lalamove_phone(os.environ.get("LALAMOVE_PICKUP_PHONE"))
+    recipient_phone = _lalamove_phone(order["phone"])
+    if not pickup_phone or not recipient_phone:
+        return "A valid Lalamove pickup and recipient phone number are required.", 400
+
+    body = {
+        "quotationId": quotation_id,
+        "sender": {"name": pickup_name, "phone": pickup_phone},
+        "recipients": [{
+            "stopId": stop_id,
+            "name": order["customer_name"],
+            "phone": recipient_phone,
+            "remarks": order["address"],
+        }],
+        "isPODEnabled": True,
+        "metadata": {"copierStoreOrderId": str(order_id)},
+    }
+    ok, data = _lalamove_request("POST", "/v3/orders", body)
+    if not ok:
+        return str(data), 400
+
+    _save_lalamove_order_sync(order_id, data)
+    conn = sqlite3.connect("orders.db")
+    conn.execute("""
+        UPDATE orders SET
+            lalamove_quotation_id = ?,
+            lalamove_quotation_expires_at = ?,
+            delivery_fee = ?,
+            total = total - COALESCE(delivery_fee, 0) + ?,
+            lalamove_order_id = ?,
+            lalamove_driver_id = ?,
+            lalamove_sharelink = ?,
+            lalamove_status = ?,
+            delivery_status = ?,
+            lalamove_last_synced_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+    """, (
+        quotation_id, quote.get("expires_at"), float(quote.get("total") or 0),
+        float(quote.get("total") or 0), data.get("orderId"), data.get("driverId"),
+        data.get("sharelink") or data.get("shareLink"), str(data.get("status") or "").upper() or None,
+        _map_lalamove_status(data.get("status")), order_id
+    ))
+    conn.commit(); conn.close()
+    if data.get("driverId"):
+        _fetch_lalamove_driver(order_id, data.get("orderId"), data.get("driverId"))
+    return redirect(f"/admin/order/{order_id}/delivery-details")
+
+
+@app.route("/admin/order/<int:order_id>/lalamove/sync", methods=["POST"])
+def admin_lalamove_sync(order_id):
+    if not session.get("admin_logged_in"):
+        return redirect("/login")
+    conn = sqlite3.connect("orders.db"); conn.row_factory = sqlite3.Row
+    order = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone(); conn.close()
+    if not order or not order["lalamove_order_id"]:
+        return "Lalamove order has not been booked yet.", 400
+    ok, data = _lalamove_request("GET", f"/v3/orders/{order['lalamove_order_id']}")
+    if not ok:
+        return str(data), 400
+    _save_lalamove_order_sync(order_id, data)
+    if data.get("driverId"):
+        _fetch_lalamove_driver(order_id, order["lalamove_order_id"], data.get("driverId"))
+    return redirect(request.referrer or f"/admin/order/{order_id}/delivery-details")
+
+
+@app.route("/api/order/<int:order_id>/lalamove/status", methods=["GET"])
+def customer_lalamove_status(order_id):
+    if not session.get("customer_id") and not session.get("admin_logged_in"):
+        return jsonify({"success": False, "message": "Please log in first."}), 401
+    conn = sqlite3.connect("orders.db"); conn.row_factory = sqlite3.Row
+    if session.get("admin_logged_in"):
+        order = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
+    else:
+        order = conn.execute("SELECT * FROM orders WHERE id=? AND customer_id=?", (order_id, session.get("customer_id"))).fetchone()
+    conn.close()
+    if not order:
+        return jsonify({"success": False, "message": "Order not found."}), 404
+    if not order["lalamove_order_id"]:
+        return jsonify({"success": True, "booked": False, "delivery_status": order["delivery_status"] or "Not Booked"})
+    ok, data = _lalamove_request("GET", f"/v3/orders/{order['lalamove_order_id']}")
+    if not ok:
+        return jsonify({"success": False, "message": str(data)}), 400
+    _save_lalamove_order_sync(order_id, data)
+    driver = None
+    if data.get("driverId"):
+        _, driver = _fetch_lalamove_driver(order_id, order["lalamove_order_id"], data.get("driverId"))
+    return jsonify({
+        "success": True,
+        "booked": True,
+        "lalamove_status": str(data.get("status") or "").upper(),
+        "delivery_status": _map_lalamove_status(data.get("status")),
+        "driver_id": data.get("driverId"),
+        "sharelink": data.get("sharelink") or data.get("shareLink"),
+        "driver": driver if isinstance(driver, dict) else None,
+        "last_synced_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    })
 
 
 @app.route("/calculate-delivery", methods=["POST"])
@@ -5033,14 +5316,16 @@ def place_order():
             (
                 customer_id, customer_name, phone, address, delivery_fee, total,
                 payment_method, payment_status, payment_reference, payment_receipt,
-                delivery_provider, lalamove_quotation_id,
+                delivery_provider, delivery_latitude, delivery_longitude,
+                lalamove_quotation_id, lalamove_quotation_expires_at,
                 cod_deposit_amount, cod_deposit_status, terms_accepted, terms_accepted_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         """, (
             customer_id, name, phone, address, float(delivery_fee or 0), total,
             payment_method, payment_status, payment_reference, None,
-            delivery_provider, lalamove_quotation_id,
+            delivery_provider, saved_latitude, saved_longitude,
+            lalamove_quotation_id, quote.get("expires_at") if delivery_provider == "Lalamove" else None,
             cod_deposit_amount, cod_deposit_status, 1
         ))
         order_id = cursor.lastrowid
@@ -5144,6 +5429,10 @@ def orders():
             orders.payment_reference,
             orders.payment_receipt,
             orders.status,
+            orders.delivery_provider,
+            orders.delivery_status,
+            orders.lalamove_order_id,
+            orders.lalamove_status,
             order_items.product,
             order_items.price,
             order_items.quantity,

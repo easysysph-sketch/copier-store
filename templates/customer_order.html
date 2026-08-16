@@ -534,6 +534,20 @@
             </div>
             {% endif %}
 
+            {% if order.delivery_provider == 'Lalamove' %}
+            <div style="margin-top:12px;padding:14px;border-radius:12px;background:#eff6ff;border:1px solid #bfdbfe;" id="lalamoveCustomerBox">
+                <strong>🛵 Lalamove Delivery</strong>
+                <div style="margin-top:5px;color:#475569;font-size:11px;">Live courier status from Lalamove.</div>
+                <div style="margin-top:9px;font-size:12px;"><strong>Courier status:</strong> <span id="lalamoveCustomerStatus">{{ order.lalamove_status or order.delivery_status or 'Not Booked' }}</span></div>
+                {% if order.lalamove_order_id %}<div style="margin-top:5px;font-size:12px;"><strong>Lalamove Order:</strong> {{ order.lalamove_order_id }}</div>{% endif %}
+                {% if order.lalamove_driver_name %}<div style="margin-top:5px;font-size:12px;"><strong>Driver:</strong> {{ order.lalamove_driver_name }}</div>{% endif %}
+                {% if order.lalamove_driver_phone %}<div style="margin-top:5px;font-size:12px;"><strong>Driver phone:</strong> {{ order.lalamove_driver_phone }}</div>{% endif %}
+                {% if order.lalamove_driver_plate %}<div style="margin-top:5px;font-size:12px;"><strong>Plate:</strong> {{ order.lalamove_driver_plate }}</div>{% endif %}
+                {% if order.lalamove_sharelink %}<a id="lalamoveCustomerLink" href="{{ order.lalamove_sharelink }}" target="_blank" rel="noopener" style="display:inline-block;margin-top:9px;color:#2563eb;font-size:11px;font-weight:800;">🔗 Track with Lalamove</a>{% endif %}
+                {% if order.lalamove_order_id %}<div id="lalamoveCustomerSync" style="margin-top:7px;color:#64748b;font-size:10px;">Status updates automatically while this page is open.</div>{% else %}<div style="margin-top:7px;color:#64748b;font-size:10px;">The store will book Lalamove after your order is accepted for delivery.</div>{% endif %}
+            </div>
+            {% endif %}
+
             {% if order.delivery_provider == 'Manual Courier' %}
             <div style="margin-top:12px;padding:14px;border-radius:12px;background:#f8fafc;border:1px solid #e2e8f0;">
                 <strong>📦 Manual Courier</strong>
@@ -884,6 +898,33 @@
 
 
     </div>
+
+{% if order.delivery_provider == 'Lalamove' and order.lalamove_order_id %}
+<script>
+async function refreshLalamoveCustomer(){
+    try {
+        const r=await fetch('/api/order/{{ order.id }}/lalamove/status',{headers:{'Accept':'application/json'}});
+        const d=await r.json();
+        if(d.success){
+            const status=document.getElementById('lalamoveCustomerStatus');
+            if(status) status.textContent=d.delivery_status || d.lalamove_status || 'Unknown';
+            if(d.driver){
+                const box=document.getElementById('lalamoveCustomerBox');
+                if(box){
+                    let extra=document.getElementById('lalamoveLiveDriver');
+                    if(!extra){ extra=document.createElement('div'); extra.id='lalamoveLiveDriver'; extra.style.marginTop='8px'; extra.style.fontSize='12px'; box.appendChild(extra); }
+                    extra.innerHTML='<strong>Driver:</strong> '+(d.driver.name || 'Assigned')+(d.driver.phone ? ' · '+d.driver.phone : '')+(d.driver.plateNumber ? ' · '+d.driver.plateNumber : '');
+                }
+            }
+            const link=document.getElementById('lalamoveCustomerLink');
+            if(link && d.sharelink) link.href=d.sharelink;
+        }
+    } catch(e) { console.debug('Lalamove status refresh failed',e); }
+}
+refreshLalamoveCustomer();
+setInterval(refreshLalamoveCustomer,30000);
+</script>
+{% endif %}
 
 </body>
 
