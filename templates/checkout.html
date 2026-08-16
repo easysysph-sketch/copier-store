@@ -1217,7 +1217,7 @@
             <div class="summary-rows">
 
                     <div class="summary-row">
-                        <span>Subtotal</span>
+                        <span>Product subtotal</span>
 
                         <strong>
                             ₱{{ "{:,.2f}".format(cart_total) }}
@@ -1226,7 +1226,7 @@
 
                     <div class="summary-row">
                         <div>
-                            <span>Delivery</span>
+                            <span>Delivery fee</span>
                             <div id="deliveryDistance" class="location-note"></div>
                         </div>
 
@@ -1239,7 +1239,7 @@
 
                 <div class="total">
 
-                    <span>ORDER TOTAL</span>
+                    <span>AMOUNT DUE TO COPIERSTORE</span>
 
                     <strong id="totalDisplay">
                         ₱{{ "{:,.2f}".format(total) }}
@@ -1395,12 +1395,13 @@
 
                 const fee = Number(data.fee || 0);
                 const subtotal = Number({{ cart_total|tojson }});
-                const total = subtotal + fee;
+                const isManualCourier = provider === "Manual Courier";
+                const payableTotal = isManualCourier ? subtotal : subtotal + fee;
 
-                document.getElementById("deliveryFeeDisplay").textContent = provider === "Manual Courier" ? "Not included" : money(fee);
-                document.getElementById("totalDisplay").textContent = money(total);
-                document.getElementById("deliveryFeeInput").value = fee;
-                document.getElementById("totalInput").value = total;
+                document.getElementById("deliveryFeeDisplay").textContent = isManualCourier ? "Not included" : money(fee);
+                document.getElementById("totalDisplay").textContent = money(payableTotal);
+                document.getElementById("deliveryFeeInput").value = isManualCourier ? 0 : fee;
+                document.getElementById("totalInput").value = payableTotal;
 
                 if (data.distance_km !== null && data.distance_km !== undefined) {
                     distanceInfo.textContent = provider === "Manual Courier"
@@ -1420,12 +1421,13 @@
 
                 const fee = Number(deliveryFees[location] || 0);
                 const subtotal = Number({{ cart_total|tojson }});
-                const total = subtotal + fee;
+                const isManualCourier = provider === "Manual Courier";
+                const payableTotal = isManualCourier ? subtotal : subtotal + fee;
 
-                document.getElementById("deliveryFeeDisplay").textContent = provider === "Manual Courier" ? "Not included" : money(fee);
-                document.getElementById("totalDisplay").textContent = money(total);
-                document.getElementById("deliveryFeeInput").value = fee;
-                document.getElementById("totalInput").value = total;
+                document.getElementById("deliveryFeeDisplay").textContent = isManualCourier ? "Not included" : money(fee);
+                document.getElementById("totalDisplay").textContent = money(payableTotal);
+                document.getElementById("deliveryFeeInput").value = isManualCourier ? 0 : fee;
+                document.getElementById("totalInput").value = payableTotal;
 
                 distanceInfo.textContent = provider === "Manual Courier"
                     ? "📦 Courier fee checked separately with your selected courier"
