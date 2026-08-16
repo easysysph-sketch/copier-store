@@ -659,6 +659,10 @@
 
                                         {% if order.payment_status == "Paid" %}
                                             <span class="payment-status payment-paid">✓ Paid</span>
+                                        {% elif order.payment_status == "Deposit Paid" %}
+                                            <span class="payment-status payment-paid">✓ COD Deposit Paid</span>
+                                        {% elif order.payment_status == "Deposit Rejected" %}
+                                            <span class="payment-status payment-rejected">✕ COD Deposit Rejected</span>
                                         {% elif order.payment_status == "Pending Verification" %}
                                             <span class="payment-status payment-pending">⏳ Verify</span>
                                         {% elif order.payment_status == "Rejected" %}
@@ -672,9 +676,14 @@
                                                 <a class="mini-btn mini-receipt" target="_blank" href="/admin/payment-receipt/{{ order.payment_receipt }}">🧾 Receipt</a>
                                             </div>
                                         {% endif %}
+                                        {% if order.cod_deposit_receipt %}
+                                            <div class="payment-actions">
+                                                <a class="mini-btn mini-receipt" target="_blank" href="/admin/payment-receipt/{{ order.cod_deposit_receipt }}">🛡️ Deposit Proof</a>
+                                            </div>
+                                        {% endif %}
 
                                         {% if order.payment_method == "Cash on Delivery" and order.cod_deposit_status == "Pending Verification" %}
-                                            <span class="payment-status payment-pending">⏳ COD Deposit</span>
+                                            <span class="payment-status payment-pending">⏳ COD Deposit ₱{{ "{:,.2f}".format(order.cod_deposit_amount or 0) }}</span>
                                             <div class="payment-actions">
                                                 <form action="/admin/payment/{{ order.id }}/confirm-deposit" method="POST">
                                                     <button class="mini-btn mini-confirm" type="submit">Accept Deposit</button>
@@ -683,6 +692,10 @@
                                                     <button class="mini-btn mini-reject" type="submit">Reject Deposit</button>
                                                 </form>
                                             </div>
+                                        {% elif order.payment_method == "Cash on Delivery" and order.cod_deposit_status == "Paid" %}
+                                            <span class="payment-status payment-paid">✓ Deposit Verified</span>
+                                        {% elif order.payment_method == "Cash on Delivery" and order.cod_deposit_status == "Rejected" %}
+                                            <span class="payment-status payment-rejected">✕ Deposit Rejected</span>
                                         {% elif order.payment_status == "Pending Verification" %}
                                             <div class="payment-actions">
                                                 <form action="/admin/payment/{{ order.id }}/confirm" method="POST">

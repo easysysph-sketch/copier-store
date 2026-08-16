@@ -705,6 +705,14 @@
         </div>
 
 
+        {% if order.payment_method == "Cash on Delivery" and (order.cod_deposit_amount or 0) > 0 %}
+        <div class="card">
+            <div class="card-title"><h2>🛡️ COD Security Deposit</h2><span class="status">{{ order.cod_deposit_status or "Pending Verification" }}</span></div>
+            <p style="font-size:12px;color:#475569;line-height:1.5;">Security deposit: <strong>₱{{ "{:,.2f}".format(order.cod_deposit_amount or 0) }}</strong>. The remaining balance is due when your COD order arrives.</p>
+            {% if order.cod_deposit_status == "Pending Verification" %}<p style="margin-top:8px;font-size:11px;color:#92400e;font-weight:800;">⏳ CopierStore is verifying your deposit proof before dispatch.</p>{% elif order.cod_deposit_status == "Paid" %}<p style="margin-top:8px;font-size:11px;color:#166534;font-weight:800;">✓ Deposit verified. Your remaining balance is due upon delivery.</p>{% elif order.cod_deposit_status == "Rejected" %}<p style="margin-top:8px;font-size:11px;color:#991b1b;font-weight:800;">✕ Deposit proof was rejected. Please contact the store before dispatch.</p>{% endif %}
+        </div>
+        {% endif %}
+
         <!-- ITEMS -->
 
         <div class="card">

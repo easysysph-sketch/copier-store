@@ -629,6 +629,8 @@ def init_db():
     for column_sql in [
         "ALTER TABLE orders ADD COLUMN cod_deposit_amount REAL DEFAULT 0",
         "ALTER TABLE orders ADD COLUMN cod_deposit_status TEXT DEFAULT 'Not Required'",
+        "ALTER TABLE orders ADD COLUMN cod_deposit_reference TEXT DEFAULT ''",
+        "ALTER TABLE orders ADD COLUMN cod_deposit_receipt TEXT DEFAULT NULL",
         "ALTER TABLE orders ADD COLUMN terms_accepted INTEGER DEFAULT 0",
         "ALTER TABLE orders ADD COLUMN terms_accepted_at TEXT"
     ]:
@@ -1773,11 +1775,13 @@ def update_status(order_id):
     if status in {"Processing", "Ready for Delivery", "Shipped"}:
         payment_status = order["payment_status"] or "Not Required"
 
+        cod_status = (order["cod_deposit_status"] or "Not Required") if "cod_deposit_status" in order.keys() else "Not Required"
         if payment_status in {
             "Pending Verification",
             "Deposit Pending Verification",
+            "Deposit Rejected",
             "Deposit Rejected"
-        }:
+        } or cod_status in {"Pending Verification", "Rejected"}:
             conn.close()
             return redirect(request.referrer or "/orders")
 
@@ -5173,6 +5177,8 @@ def place_order():
     location = (request.form.get("location") or "").strip()
     payment_method = (request.form.get("payment_method") or "Cash on Delivery").strip()
     payment_reference = (request.form.get("payment_reference") or "").strip()
+    cod_deposit_reference = (request.form.get("cod_deposit_reference") or "").strip()
+    cod_deposit_receipt = request.files.get("cod_deposit_receipt")
     delivery_provider = (request.form.get("delivery_provider") or "Standard Delivery").strip()
     selected_address_id = request.form.get("selected_address")
     terms_accepted = request.form.get("terms_accepted")
@@ -5221,6 +5227,25 @@ def place_order():
         if not valid_image_upload(payment_receipt):
             return "Invalid receipt image. Use PNG, JPG, JPEG, or WEBP.", 400
         payment_status = "Pending Verification"
+    elif payment_method == "Cash on Delivery":
+        # COD orders require the configured security deposit before dispatch.
+        # The deposit is a separate payment and does not reduce the displayed
+        # order total; it is credited/refunded according to store policy.
+        conn = sqlite3.connect("orders.db")
+        conn.row_factory = sqlite3.Row
+        try:
+            settings = conn.execute(
+                "SELECT cod_deposit_enabled, cod_deposit_amount FROM payment_settings WHERE id=1"
+            ).fetchone()
+        finally:
+            conn.close()
+        if settings and int(settings["cod_deposit_enabled"] or 0) and float(settings["cod_deposit_amount"] or 0) > 0:
+            if not cod_deposit_reference:
+                return "Please enter the GCash reference number for the COD security deposit.", 400
+            if not cod_deposit_receipt or not cod_deposit_receipt.filename:
+                return "Please upload proof of the COD security deposit.", 400
+            if not valid_image_upload(cod_deposit_receipt):
+                return "Invalid COD deposit proof image. Use PNG, JPG, JPEG, or WEBP.", 400
 
     # Recalculate delivery on the server. Never trust the hidden fee/total from
     # the browser. Lalamove is quoted again at order time so the customer cannot
@@ -5325,7 +5350,7 @@ def place_order():
         if settings and int(settings["cod_deposit_enabled"] or 0):
             cod_deposit_amount = max(0.0, float(settings["cod_deposit_amount"] or 0))
             if cod_deposit_amount > 0:
-                cod_deposit_status = "Pending"
+                cod_deposit_status = "Pending Verification"
 
     customer_id = session.get("customer_id")
     receipt_filename = None
@@ -5341,15 +5366,17 @@ def place_order():
                 payment_method, payment_status, payment_reference, payment_receipt,
                 delivery_provider, delivery_latitude, delivery_longitude,
                 lalamove_quotation_id, lalamove_quotation_expires_at,
-                cod_deposit_amount, cod_deposit_status, terms_accepted, terms_accepted_at
+                cod_deposit_amount, cod_deposit_status, cod_deposit_reference, cod_deposit_receipt,
+                terms_accepted, terms_accepted_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         """, (
             customer_id, name, phone, address, float(delivery_fee or 0), total,
             payment_method, payment_status, payment_reference, None,
             delivery_provider, saved_latitude, saved_longitude,
             lalamove_quotation_id, quote.get("expires_at") if delivery_provider == "Lalamove" else None,
-            cod_deposit_amount, cod_deposit_status, 1
+            cod_deposit_amount, cod_deposit_status, cod_deposit_reference if cod_deposit_amount > 0 else None, None,
+            1
         ))
         order_id = cursor.lastrowid
 
@@ -5363,6 +5390,18 @@ def place_order():
             cursor.execute(
                 "UPDATE orders SET payment_receipt=? WHERE id=?",
                 (receipt_filename, order_id)
+            )
+
+        if cod_deposit_receipt and cod_deposit_receipt.filename and cod_deposit_amount > 0:
+            safe_ref = secure_filename(cod_deposit_reference) or "cod-deposit"
+            safe_original = secure_filename(cod_deposit_receipt.filename) or "deposit-proof"
+            ext = safe_original.rsplit(".", 1)[1].lower() if "." in safe_original else "jpg"
+            deposit_filename = f"cod_deposit_{order_id}_{safe_ref}_{uuid.uuid4().hex}.{ext}"
+            os.makedirs(PAYMENT_UPLOAD_FOLDER, exist_ok=True)
+            cod_deposit_receipt.save(os.path.join(PAYMENT_UPLOAD_FOLDER, deposit_filename))
+            cursor.execute(
+                "UPDATE orders SET cod_deposit_receipt=? WHERE id=?",
+                (deposit_filename, order_id)
             )
 
         for item in normalized_cart:
@@ -5413,12 +5452,92 @@ def update_payment(order_id, action):
         return redirect("/login")
     if action not in {"confirm", "reject"}:
         return "Invalid payment action.", 400
-    new_status = "Paid" if action == "confirm" else "Rejected"
+
     conn = sqlite3.connect("orders.db")
-    cursor = conn.cursor()
-    cursor.execute("UPDATE orders SET payment_status = ? WHERE id = ?", (new_status, order_id))
-    conn.commit()
-    conn.close()
+    conn.row_factory = sqlite3.Row
+    try:
+        order = conn.execute(
+            "SELECT id, customer_id, payment_method, payment_status FROM orders WHERE id=?",
+            (order_id,),
+        ).fetchone()
+        if not order:
+            return "Order not found", 404
+
+        # COD orders are verified through the dedicated deposit actions below.
+        # Never let a crafted generic /confirm request turn a COD order into
+        # a fully-paid order.
+        if order["payment_method"] == "Cash on Delivery":
+            return "COD orders must use the COD deposit verification action.", 400
+
+        if order["payment_status"] != "Pending Verification":
+            return redirect(request.referrer or "/orders")
+
+        new_status = "Paid" if action == "confirm" else "Rejected"
+        conn.execute("UPDATE orders SET payment_status = ? WHERE id = ?", (new_status, order_id))
+
+        if order["customer_id"]:
+            message = (
+                f"✅ Payment for Order #{order_id} was verified."
+                if new_status == "Paid"
+                else f"❌ Payment for Order #{order_id} was rejected. Please review your payment details."
+            )
+            conn.execute(
+                "INSERT INTO notifications (customer_id, message) VALUES (?, ?)",
+                (order["customer_id"], message),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    return redirect(request.referrer or "/orders")
+
+
+@app.route("/admin/payment/<int:order_id>/confirm-deposit", methods=["POST"])
+def confirm_cod_deposit(order_id):
+    if not session.get("admin_logged_in"):
+        return redirect("/login")
+    conn = sqlite3.connect("orders.db")
+    conn.row_factory = sqlite3.Row
+    try:
+        order = conn.execute("SELECT id, customer_id, payment_method, cod_deposit_amount, cod_deposit_status FROM orders WHERE id=?", (order_id,)).fetchone()
+        if not order:
+            return "Order not found", 404
+        if order["payment_method"] != "Cash on Delivery" or float(order["cod_deposit_amount"] or 0) <= 0:
+            return "This order does not require a COD security deposit.", 400
+        if order["cod_deposit_status"] != "Pending Verification":
+            return redirect(request.referrer or "/orders")
+        conn.execute("UPDATE orders SET cod_deposit_status='Paid', payment_status='Deposit Paid' WHERE id=?", (order_id,))
+        if order["customer_id"]:
+            conn.execute(
+                "INSERT INTO notifications (customer_id, message) VALUES (?, ?)",
+                (order["customer_id"], f"✅ COD security deposit for Order #{order_id} was accepted. Your remaining balance is due upon delivery."),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    return redirect(request.referrer or "/orders")
+
+
+@app.route("/admin/payment/<int:order_id>/reject-deposit", methods=["POST"])
+def reject_cod_deposit(order_id):
+    if not session.get("admin_logged_in"):
+        return redirect("/login")
+    conn = sqlite3.connect("orders.db")
+    conn.row_factory = sqlite3.Row
+    try:
+        order = conn.execute("SELECT id, customer_id, payment_method, cod_deposit_amount, cod_deposit_status FROM orders WHERE id=?", (order_id,)).fetchone()
+        if not order:
+            return "Order not found", 404
+        if order["payment_method"] != "Cash on Delivery" or float(order["cod_deposit_amount"] or 0) <= 0:
+            return "This order does not require a COD security deposit.", 400
+        conn.execute("UPDATE orders SET cod_deposit_status='Rejected', payment_status='Deposit Rejected' WHERE id=?", (order_id,))
+        if order["customer_id"]:
+            conn.execute(
+                "INSERT INTO notifications (customer_id, message) VALUES (?, ?)",
+                (order["customer_id"], f"❌ COD security deposit for Order #{order_id} was rejected. Please contact CopierStore before dispatch."),
+            )
+        conn.commit()
+    finally:
+        conn.close()
     return redirect(request.referrer or "/orders")
 
 
@@ -5451,6 +5570,10 @@ def orders():
             orders.payment_status,
             orders.payment_reference,
             orders.payment_receipt,
+            orders.cod_deposit_amount,
+            orders.cod_deposit_status,
+            orders.cod_deposit_reference,
+            orders.cod_deposit_receipt,
             orders.status,
             orders.delivery_provider,
             orders.delivery_status,

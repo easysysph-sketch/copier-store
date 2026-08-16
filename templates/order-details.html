@@ -279,6 +279,22 @@
             </p>
         {% endif %}
 
+        {% if order.payment_method == "Cash on Delivery" and (order.cod_deposit_amount or 0) > 0 %}
+            <div style="margin-top:15px;padding:13px;border-radius:11px;background:#eff6ff;border:1px solid #bfdbfe;">
+                <strong>🛡️ COD Security Deposit</strong>
+                <p style="margin-top:6px;"><strong>Amount:</strong> ₱{{ "{:,.2f}".format(order.cod_deposit_amount or 0) }}</p>
+                <p style="margin-top:6px;"><strong>Status:</strong> {{ order.cod_deposit_status or "Pending Verification" }}</p>
+                {% if order.cod_deposit_reference %}<p style="margin-top:6px;"><strong>GCash Reference:</strong> {{ order.cod_deposit_reference }}</p>{% endif %}
+                {% if order.cod_deposit_receipt %}<p style="margin-top:8px;"><a href="/admin/payment-receipt/{{ order.cod_deposit_receipt }}" target="_blank" style="color:#2563eb;font-weight:bold;">🛡️ View Deposit Proof</a></p>{% endif %}
+                {% if order.cod_deposit_status == "Pending Verification" %}
+                    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+                        <form action="/admin/payment/{{ order.id }}/confirm-deposit" method="POST"><button type="submit" style="background:#16a34a;">✓ Accept ₱{{ "{:,.2f}".format(order.cod_deposit_amount or 0) }} Deposit</button></form>
+                        <form action="/admin/payment/{{ order.id }}/reject-deposit" method="POST"><button type="submit" style="background:#dc2626;">✕ Reject Deposit</button></form>
+                    </div>
+                {% endif %}
+            </div>
+        {% endif %}
+
         {% if order.payment_status == "Pending Verification" %}
             <div style="display:flex;gap:8px;margin-top:15px;flex-wrap:wrap;">
                 <form action="/admin/payment/{{ order.id }}/confirm" method="POST">
