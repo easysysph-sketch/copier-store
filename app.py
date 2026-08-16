@@ -717,6 +717,20 @@ def init_db():
         )
     """)
 
+    # Product reviews. Fresh Render databases must have this table before
+    # the product details page attempts to load reviews.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS reviews (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER NOT NULL,
+            customer_name TEXT NOT NULL,
+            rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+            comment TEXT DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (product_id) REFERENCES products(id)
+        )
+    """)
+
     # Products inside each order
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS order_items (
@@ -3487,16 +3501,10 @@ def admin_lalamove_book(order_id):
         return str(quote), 400
     quotation_id = quote.get("quotation_id")
     stops = quote.get("stops") or []
-    pickup_stop = stops[0] if stops else {}
-    dropoff_stop = stops[-1] if stops else {}
-    pickup_stop_id = pickup_stop.get("stopId") or pickup_stop.get("id")
-    dropoff_stop_id = dropoff_stop.get("stopId") or dropoff_stop.get("id")
-
-    # Lalamove requires the sender and each recipient to use the exact stopId
-    # returned by the quotation. The order payload must also be wrapped in
-    # {"data": {...}} for the v3 /orders endpoint.
-    if not quotation_id or not pickup_stop_id or not dropoff_stop_id:
-        return "Lalamove did not return usable quotation stop IDs. Please request another quote.", 400
+    dropoff = stops[-1] if stops else {}
+    stop_id = dropoff.get("stopId") or dropoff.get("id")
+    if not quotation_id or not stop_id:
+        return "Lalamove did not return a usable quotation stop. Please request another quote.", 400
 
     pickup_name = (os.environ.get("LALAMOVE_PICKUP_NAME") or "CopierStore").strip()
     pickup_phone = _lalamove_phone(os.environ.get("LALAMOVE_PICKUP_PHONE"))
@@ -3505,22 +3513,16 @@ def admin_lalamove_book(order_id):
         return "A valid Lalamove pickup and recipient phone number are required.", 400
 
     body = {
-        "data": {
-            "quotationId": quotation_id,
-            "sender": {
-                "stopId": pickup_stop_id,
-                "name": pickup_name,
-                "phone": pickup_phone,
-            },
-            "recipients": [{
-                "stopId": dropoff_stop_id,
-                "name": order["customer_name"],
-                "phone": recipient_phone,
-                "remarks": order["address"],
-            }],
-            "isPODEnabled": True,
-            "metadata": {"copierStoreOrderId": str(order_id)},
-        }
+        "quotationId": quotation_id,
+        "sender": {"name": pickup_name, "phone": pickup_phone},
+        "recipients": [{
+            "stopId": stop_id,
+            "name": order["customer_name"],
+            "phone": recipient_phone,
+            "remarks": order["address"],
+        }],
+        "isPODEnabled": True,
+        "metadata": {"copierStoreOrderId": str(order_id)},
     }
     ok, data = _lalamove_request("POST", "/v3/orders", body)
     if not ok:
