@@ -60,6 +60,29 @@ _SECRET_KEY = os.environ.get("SECRET_KEY")
 if _ENVIRONMENT == "production" and (not _SECRET_KEY or len(_SECRET_KEY) < 32):
     raise RuntimeError("SECRET_KEY must be configured in production and be at least 32 characters long.")
 app.secret_key = _SECRET_KEY or "dev-only-change-me"
+# Delivery configuration (safe defaults; can be overridden by Render environment variables).
+# These values are intentionally defined at module load so checkout cannot crash
+# when route-based delivery calculation runs before any database lookup.
+try:
+    STORE_LATITUDE = float(os.environ.get("STORE_LATITUDE") or "10.3157")
+except (TypeError, ValueError):
+    STORE_LATITUDE = 10.3157
+try:
+    STORE_LONGITUDE = float(os.environ.get("STORE_LONGITUDE") or "123.8854")
+except (TypeError, ValueError):
+    STORE_LONGITUDE = 123.8854
+
+DELIVERY_BASE_FEE = float(os.environ.get("DELIVERY_BASE_FEE") or "50")
+DELIVERY_PER_KM = float(os.environ.get("DELIVERY_PER_KM") or "15")
+DELIVERY_ROUND_TO = float(os.environ.get("DELIVERY_ROUND_TO") or "5")
+
+# Legacy/location fallback used only when routing or geocoding is unavailable.
+# Keep this as a safe fallback so checkout still works even if an external
+# routing service is temporarily unavailable.
+delivery_fees = {
+    "Cebu City": 500.0,
+}
+
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
