@@ -1,5 +1,174 @@
 from flask import Flask, render_template, request, session, redirect, flash, jsonify
-import sqlite3
+import sqlite3 as _sqlite3
+
+# --- Turso / SQLite compatibility layer ---
+# The application was originally written for Python's sqlite3 API.  Turso's
+# libsql driver is SQLite-compatible but its remote Connection object does not
+# expose sqlite3's row_factory attribute.  This adapter preserves the small
+# sqlite3 surface used by CopierStore while sending the actual database work
+# to Turso whenever the two TURSO_* environment variables are present.
+try:
+    import libsql as _turso_libsql
+except ImportError:
+    _turso_libsql = None
+
+
+class _CompatRow:
+    """Small sqlite3.Row-compatible mapping/sequence wrapper."""
+    __slots__ = ("_keys", "_values")
+
+    def __init__(self, keys, values):
+        self._keys = tuple(keys or ())
+        self._values = tuple(values or ())
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self._values[key]
+        key_l = str(key).lower()
+        for i, name in enumerate(self._keys):
+            if str(name).lower() == key_l:
+                return self._values[i]
+        raise IndexError(key)
+
+    def __iter__(self):
+        return iter(self._values)
+
+    def __len__(self):
+        return len(self._values)
+
+    def keys(self):
+        return list(self._keys)
+
+    def __repr__(self):
+        return repr(dict(zip(self._keys, self._values)))
+
+
+class _CompatCursor:
+    def __init__(self, raw, connection):
+        self.raw = raw
+        self.connection = connection
+
+    @property
+    def description(self):
+        return getattr(self.raw, "description", None)
+
+    @property
+    def lastrowid(self):
+        return getattr(self.raw, "lastrowid", None)
+
+    @property
+    def rowcount(self):
+        return getattr(self.raw, "rowcount", -1)
+
+    def execute(self, sql, parameters=()):
+        try:
+            if parameters is None:
+                self.raw.execute(sql)
+            else:
+                self.raw.execute(sql, parameters)
+            return self
+        except Exception as exc:
+            message = str(exc).lower()
+            # Existing CopierStore migrations intentionally attempt ADD COLUMN
+            # on older databases.  SQLite used to raise OperationalError here;
+            # libsql surfaces it as a different exception type.  Normalize only
+            # these expected migration errors so the existing try/except blocks
+            # continue to work exactly as they did with sqlite3.
+            if "duplicate column name" in message or "already exists" in message:
+                raise _sqlite3.OperationalError(str(exc)) from exc
+            raise
+
+    def fetchone(self):
+        row = self.raw.fetchone()
+        return self.connection._convert_row(row, self.description)
+
+    def fetchall(self):
+        rows = self.raw.fetchall()
+        return [self.connection._convert_row(row, self.description) for row in rows]
+
+    def fetchmany(self, size=None):
+        rows = self.raw.fetchmany(size) if size is not None else self.raw.fetchmany()
+        return [self.connection._convert_row(row, self.description) for row in rows]
+
+    def __iter__(self):
+        for row in self.raw:
+            yield self.connection._convert_row(row, self.description)
+
+    def __getattr__(self, name):
+        return getattr(self.raw, name)
+
+
+class _CompatConnection:
+    def __init__(self, raw):
+        self.raw = raw
+        self._row_factory = None
+
+    @property
+    def row_factory(self):
+        return self._row_factory
+
+    @row_factory.setter
+    def row_factory(self, value):
+        self._row_factory = value
+
+    def _convert_row(self, row, description):
+        if row is None:
+            return None
+        if self._row_factory is None:
+            return row
+        # Preserve the application's sqlite3.Row behavior for the only row
+        # factory it uses: sqlite3.Row.
+        if self._row_factory is _sqlite3.Row:
+            names = [col[0] for col in (description or ())]
+            return _CompatRow(names, row)
+        try:
+            return self._row_factory(None, row)
+        except Exception:
+            return row
+
+    def cursor(self):
+        return _CompatCursor(self.raw.cursor(), self)
+
+    def execute(self, sql, parameters=()):
+        return self.cursor().execute(sql, parameters)
+
+    def commit(self):
+        return self.raw.commit()
+
+    def rollback(self):
+        return self.raw.rollback()
+
+    def close(self):
+        return self.raw.close()
+
+    def __getattr__(self, name):
+        return getattr(self.raw, name)
+
+
+class _SQLiteCompat:
+    Row = _sqlite3.Row
+    Error = _sqlite3.Error
+    OperationalError = _sqlite3.OperationalError
+    IntegrityError = _sqlite3.IntegrityError
+    DatabaseError = _sqlite3.DatabaseError
+    ProgrammingError = _sqlite3.ProgrammingError
+    InterfaceError = _sqlite3.InterfaceError
+
+    @staticmethod
+    def connect(database, *args, **kwargs):
+        turso_url = os.environ.get("TURSO_DATABASE_URL", "").strip()
+        turso_token = os.environ.get("TURSO_AUTH_TOKEN", "").strip()
+        if turso_url and turso_token:
+            if _turso_libsql is None:
+                raise RuntimeError(
+                    "TURSO_DATABASE_URL/TURSO_AUTH_TOKEN are set, but libsql is not installed."
+                )
+            raw = _turso_libsql.connect(database=turso_url, auth_token=turso_token)
+            return _CompatConnection(raw)
+        return _sqlite3.connect(database, *args, **kwargs)
+
+
+sqlite3 = _SQLiteCompat()
 from google import genai
 from google.genai import types
 import os
@@ -368,7 +537,7 @@ def get_store_location():
         conn.close()
 
 
-def init_db():
+def _init_db_full():
     ensure_security_tables()
     conn = sqlite3.connect("orders.db")
     cursor = conn.cursor()
@@ -855,6 +1024,38 @@ def init_db():
     conn.commit()
     conn.close()
 
+
+
+
+def _turso_schema_is_ready():
+    """Return True when the existing Turso database already has the app schema."""
+    required_tables = {
+        "customers", "admin_credentials", "repair_requests", "store_settings",
+        "customer_addresses", "orders", "payment_settings", "wishlist",
+        "recently_viewed", "notifications", "admin_notifications",
+        "chat_conversations", "chat_messages", "order_items", "products",
+        "reviews", "product_categories",
+    }
+    conn = sqlite3.connect("orders.db")
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        existing = {row[0] for row in cur.fetchall()}
+        return required_tables.issubset(existing)
+    finally:
+        conn.close()
+
+
+def init_db():
+    # On Render/Turso, don't replay the entire local SQLite migration chain on
+    # every Gunicorn worker startup. Once the schema exists, a cheap metadata
+    # check is enough and avoids remote startup timeouts.
+    if (os.environ.get("TURSO_DATABASE_URL", "").strip()
+            and os.environ.get("TURSO_AUTH_TOKEN", "").strip()):
+        if _turso_schema_is_ready():
+            print("[database] Turso schema already initialized; skipping full startup migrations")
+            return
+    _init_db_full()
 
 
 def ensure_accounting_tables():
