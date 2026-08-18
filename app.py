@@ -440,17 +440,28 @@ def enforce_request_security():
         # Local development commonly uses either localhost or 127.0.0.1.
         # Treat those two loopback hosts as the same origin only in debug/dev
         # mode, while still requiring the same scheme and port.
-        same_origin = source_origin == expected
-        if (app.debug or ((parsed.hostname or "").lower() in {"localhost", "127.0.0.1", "::1"} and (urllib.parse.urlparse(expected).hostname or "").lower() in {"localhost", "127.0.0.1", "::1"})):
-            expected_parsed = urllib.parse.urlparse(expected)
-            source_host = (parsed.hostname or "").lower()
-            expected_host = (expected_parsed.hostname or "").lower()
-            source_port = parsed.port or (443 if parsed.scheme == "https" else 80)
-            expected_port = expected_parsed.port or (443 if expected_parsed.scheme == "https" else 80)
+        # Render terminates TLS at the proxy. Compare the public host/port as
+        # the authoritative same-origin boundary; the proxy middleware already
+        # normalizes the forwarded scheme/host for Flask. This avoids rejecting
+        # legitimate admin form POSTs when a proxy presents a different scheme
+        # while preserving cross-site host protection.
+        expected_parsed = urllib.parse.urlparse(expected)
+        source_host = (parsed.hostname or "").lower().rstrip(".")
+        expected_host = (expected_parsed.hostname or "").lower().rstrip(".")
+
+        # Render terminates TLS before forwarding the request to Flask. Depending
+        # on the platform/router, the forwarded scheme can be represented as
+        # http internally even though the browser's Origin is https://... .
+        # The browser is already bound to the public host, so comparing the
+        # hostname is the reliable same-site boundary here. Requiring the
+        # derived scheme/port caused every normal POST (login, registration,
+        # checkout, etc.) to be rejected with "Security check failed." on Render.
+        same_origin = source_host == expected_host
+
+        if app.debug:
             loopback_hosts = {"localhost", "127.0.0.1", "::1"}
-            same_origin = (parsed.scheme == expected_parsed.scheme and source_port == expected_port and
-                           ((source_host == expected_host) or
-                            (source_host in loopback_hosts and expected_host in loopback_hosts)))
+            same_origin = (source_host == expected_host or
+                           (source_host in loopback_hosts and expected_host in loopback_hosts))
         if not same_origin:
             security_log("csrf_origin_blocked", f"Blocked cross-origin {request.method} {path}")
             return jsonify({"success": False, "error": "Security check failed."}), 403
