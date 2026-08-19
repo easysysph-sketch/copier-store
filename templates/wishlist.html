@@ -55,7 +55,7 @@
     {% if products %}
     <div class="wishlist-grid">
         {% for product in products %}
-        {% set price = product.base_price * (1 + product.markup / 100) %}
+        {% set price = product.base_price %}
         <article class="wishlist-card">
             <form action="/wishlist/toggle/{{ product.id }}" method="POST">
                 <button class="wishlist-remove" type="submit" title="Remove from wishlist" aria-label="Remove {{ product.name }}">♥</button>

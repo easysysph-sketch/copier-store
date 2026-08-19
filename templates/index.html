@@ -655,6 +655,184 @@
             gap: 20px;
         }
 
+
+        /* STORE LOCATION / PHOTO GALLERY */
+        .store-proof {
+            margin: 48px 0 0;
+        }
+
+        .store-proof-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.25fr) minmax(300px, .75fr);
+            gap: 18px;
+            align-items: stretch;
+        }
+
+        .store-gallery {
+            position: relative;
+            overflow: hidden;
+            min-height: 430px;
+            border-radius: 20px;
+            background: #0f172a;
+            border: 1px solid var(--line);
+            box-shadow: 0 18px 45px rgba(15,23,42,.10);
+        }
+
+        .store-slide {
+            display: none;
+            width: 100%;
+            height: 100%;
+            min-height: 430px;
+            position: relative;
+        }
+
+        .store-slide.active {
+            display: block;
+            animation: storeFade .35s ease;
+        }
+
+        .store-slide img {
+            width: 100%;
+            height: 100%;
+            min-height: 430px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .store-slide-caption {
+            position: absolute;
+            left: 18px;
+            right: 18px;
+            bottom: 18px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            color: white;
+            background: linear-gradient(180deg, transparent, rgba(15,23,42,.86));
+            padding-top: 34px;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .gallery-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 3;
+            width: 42px;
+            height: 42px;
+            border: 1px solid rgba(255,255,255,.35);
+            border-radius: 50%;
+            background: rgba(15,23,42,.58);
+            color: white;
+            cursor: pointer;
+            font-size: 20px;
+            display: grid;
+            place-items: center;
+            backdrop-filter: blur(8px);
+        }
+
+        .gallery-arrow:hover { background: rgba(15,23,42,.82); }
+        .gallery-prev { left: 14px; }
+        .gallery-next { right: 14px; }
+
+        .gallery-dots {
+            position: absolute;
+            left: 50%;
+            bottom: 14px;
+            transform: translateX(-50%);
+            z-index: 4;
+            display: flex;
+            gap: 6px;
+            padding: 6px 9px;
+            border-radius: 999px;
+            background: rgba(15,23,42,.48);
+            backdrop-filter: blur(8px);
+        }
+
+        .gallery-dot {
+            width: 7px;
+            height: 7px;
+            padding: 0;
+            border: 0;
+            border-radius: 50%;
+            background: rgba(255,255,255,.45);
+            cursor: pointer;
+        }
+
+        .gallery-dot.active { background: white; transform: scale(1.25); }
+
+        .store-info-card {
+            background: white;
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            padding: 26px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .store-info-card h2 {
+            font-size: 29px;
+            letter-spacing: -.8px;
+            margin-bottom: 9px;
+        }
+
+        .store-info-card > p {
+            color: var(--muted);
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+
+        .store-detail {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            padding: 13px 0;
+            border-top: 1px solid #eef2f7;
+        }
+
+        .store-detail-icon {
+            width: 38px;
+            height: 38px;
+            flex: 0 0 38px;
+            display: grid;
+            place-items: center;
+            border-radius: 11px;
+            background: #eff6ff;
+        }
+
+        .store-detail strong { display: block; font-size: 12px; margin-bottom: 2px; }
+        .store-detail span { display: block; color: var(--muted); font-size: 12px; }
+
+        .store-hours {
+            margin-top: 14px;
+            padding: 12px 13px;
+            border-radius: 12px;
+            background: #f8fafc;
+            color: #475569;
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .store-map-link {
+            display: inline-flex;
+            justify-content: center;
+            margin-top: 14px;
+            padding: 11px 14px;
+            border-radius: 10px;
+            background: var(--blue);
+            color: white;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .store-map-link:hover { background: var(--blue-dark); }
+
+        @keyframes storeFade {
+            from { opacity: .45; transform: scale(1.01); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
         /* AI FLOAT */
 
         .ai-button {
@@ -719,6 +897,13 @@
                 align-items: start;
                 flex-direction: column;
             }
+        }
+
+
+
+        @media (max-width: 800px) {
+            .store-proof-grid { grid-template-columns: 1fr; }
+            .store-gallery, .store-slide, .store-slide img { min-height: 320px; }
         }
 
         @media (max-width: 520px) {
@@ -955,7 +1140,7 @@
             <article
                 class="product-card"
                 data-category="{{ product.category }}"
-                data-price="{{ product.base_price * (1 + product.markup / 100) }}"
+                data-price="{{ product.base_price }}"
             >
 
                 <div class="product-media">
@@ -1034,7 +1219,7 @@
                 </p>
 
                 <div class="price">
-                    ₱{{ "{:,.2f}".format(product.base_price * (1 + product.markup / 100)) }}
+                    ₱{{ "{:,.2f}".format(product.base_price) }}
                 </div>
 
                 {% if product.stock > 0 %}
@@ -1077,7 +1262,7 @@
                         <input
                             type="hidden"
                             name="price"
-                            value="{{ product.base_price * (1 + product.markup / 100) }}"
+                            value="{{ product.base_price }}"
                         >
 
                         <input
@@ -1110,7 +1295,7 @@
                         <input
                             type="hidden"
                             name="price"
-                            value="{{ product.base_price * (1 + product.markup / 100) }}"
+                            value="{{ product.base_price }}"
                         >
 
                         <input
@@ -1153,6 +1338,97 @@
                 <p style="margin-top:4px;">
                     Try a different search or filter.
                 </p>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <section class="store-proof">
+
+        <div class="section-heading">
+            <div>
+                <div class="eyebrow">Visit the store</div>
+                <h2>Real store. Real products. Real support.</h2>
+                <p>See where CopierStore operates and where your orders can be picked up.</p>
+            </div>
+        </div>
+
+        <div class="store-proof-grid">
+
+            <div class="store-gallery" id="storeGallery">
+                <div class="store-slide active">
+                    <img src="{{ url_for('static', filename='store-gallery/office-9.jpg') }}" alt="CopierStore delivery and loading area">
+                    <div class="store-slide-caption">Delivery and loading operations</div>
+                </div>
+                <div class="store-slide">
+                    <img src="{{ url_for('static', filename='store-gallery/office-1.jpg') }}" alt="CopierStore developer supplies">
+                    <div class="store-slide-caption">Developer and copier supplies in stock</div>
+                </div>
+                <div class="store-slide">
+                    <img src="{{ url_for('static', filename='store-gallery/office-4.jpg') }}" alt="CopierStore stockroom">
+                    <div class="store-slide-caption">Stockroom and inventory area</div>
+                </div>
+                <div class="store-slide">
+                    <img src="{{ url_for('static', filename='store-gallery/office-8.jpg') }}" alt="CopierStore copier parts">
+                    <div class="store-slide-caption">Copier parts and supplies</div>
+                </div>
+                <div class="store-slide">
+                    <img src="{{ url_for('static', filename='store-gallery/office-5.jpg') }}" alt="CopierStore toner supplies">
+                    <div class="store-slide-caption">Toner supplies</div>
+                </div>
+                <div class="store-slide">
+                    <img src="{{ url_for('static', filename='store-gallery/office-10.jpg') }}" alt="CopierStore technician at work">
+                    <div class="store-slide-caption">Equipment servicing and maintenance</div>
+                </div>
+                <div class="store-slide">
+                    <img src="{{ url_for('static', filename='store-gallery/office-3.jpg') }}" alt="CopierStore equipment service">
+                    <div class="store-slide-caption">On-site equipment servicing</div>
+                </div>
+                <div class="store-slide">
+                    <img src="{{ url_for('static', filename='store-gallery/office-7.jpg') }}" alt="CopierStore service team">
+                    <div class="store-slide-caption">Service team working on office equipment</div>
+                </div>
+                <div class="store-slide">
+                    <img src="{{ url_for('static', filename='store-gallery/office-2.jpg') }}" alt="CopierStore copier repair">
+                    <div class="store-slide-caption">Copier repair and diagnostics</div>
+                </div>
+
+                <button type="button" class="gallery-arrow gallery-prev" onclick="moveStoreSlide(-1)" aria-label="Previous store photo">‹</button>
+                <button type="button" class="gallery-arrow gallery-next" onclick="moveStoreSlide(1)" aria-label="Next store photo">›</button>
+
+                <div class="gallery-dots" id="galleryDots" aria-label="Store photo navigation"></div>
+            </div>
+
+            <div class="store-info-card">
+                <div class="eyebrow">CopierStore Cebu</div>
+                <h2>Find us in Cebu City.</h2>
+                <p>For pickup, deliveries, and in-person inquiries, visit our store during business hours.</p>
+
+                <div class="store-detail">
+                    <div class="store-detail-icon">📍</div>
+                    <div>
+                        <strong>Store address</strong>
+                        <span>Cebu Kang Ha Building, Osmeña Blvd, Cebu City, 6000 Cebu</span>
+                    </div>
+                </div>
+
+                <div class="store-detail">
+                    <div class="store-detail-icon">🚚</div>
+                    <div>
+                        <strong>Pickup & delivery time</strong>
+                        <span>8:00 AM – 5:00 PM, Monday to Friday</span>
+                    </div>
+                </div>
+
+                <div class="store-hours">
+                    🕘 Orders for pickup and delivery are handled during Monday–Friday, 8:00 AM–5:00 PM.
+                </div>
+
+                <a class="store-map-link" href="https://www.google.com/maps/search/?api=1&query=Cebu+Kang+Ha+Building+Osme%C3%B1a+Blvd+Cebu+City+6000+Cebu" target="_blank" rel="noopener">
+                    📍 Open in Google Maps
+                </a>
             </div>
 
         </div>
@@ -1263,6 +1539,39 @@
 </a>
 
 <script>
+
+
+    let storeSlideIndex = 0;
+
+    function initStoreGallery() {
+        const slides = document.querySelectorAll("#storeGallery .store-slide");
+        const dots = document.getElementById("galleryDots");
+        if (!slides.length || !dots) return;
+
+        slides.forEach((_, index) => {
+            const dot = document.createElement("button");
+            dot.type = "button";
+            dot.className = "gallery-dot" + (index === 0 ? " active" : "");
+            dot.setAttribute("aria-label", `Show store photo ${index + 1}`);
+            dot.onclick = () => showStoreSlide(index);
+            dots.appendChild(dot);
+        });
+    }
+
+    function showStoreSlide(index) {
+        const slides = document.querySelectorAll("#storeGallery .store-slide");
+        const dots = document.querySelectorAll("#galleryDots .gallery-dot");
+        if (!slides.length) return;
+        storeSlideIndex = (index + slides.length) % slides.length;
+        slides.forEach((slide, i) => slide.classList.toggle("active", i === storeSlideIndex));
+        dots.forEach((dot, i) => dot.classList.toggle("active", i === storeSlideIndex));
+    }
+
+    function moveStoreSlide(direction) {
+        showStoreSlide(storeSlideIndex + direction);
+    }
+
+    initStoreGallery();
 
     let selectedCategory = "all";
 

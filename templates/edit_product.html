@@ -333,27 +333,7 @@
                         value="{{ product.base_price }}"
                         step="0.01"
                         min="0"
-                        oninput="calculatePrice()"
                         required
-                    >
-
-                </div>
-
-
-                <div class="field">
-
-                    <label>
-                        Markup (%)
-                    </label>
-
-                    <input
-                        type="number"
-                        id="markup"
-                        name="markup"
-                        value="{{ product.markup }}"
-                        step="0.01"
-                        min="0"
-                        oninput="calculatePrice()"
                     >
 
                 </div>
@@ -466,13 +446,7 @@
                     document.getElementById("basePrice").value
                 ) || 0;
 
-            const markup =
-                parseFloat(
-                    document.getElementById("markup").value
-                ) || 0;
-
-            const finalPrice =
-                base * (1 + markup / 100);
+            const finalPrice = base;
 
             document.getElementById("sellingPrice").innerText =
                 "₱" +

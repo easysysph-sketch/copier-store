@@ -372,10 +372,10 @@ a{color:inherit}
 
                 <p class="price">
                     ₱{{ "{:,.2f}".format(
-                    product.base_price * (1 + product.markup / 100)
+                    product.base_price
                     ) }}
                 </p>
-                <p class="price-note">Final selling price includes the listed markup.</p>
+                <p class="price-note">Current store price.</p>
 <div class="purchase-note">✨ Ready to order? Choose your quantity below.</div>
 
                 <div class="product-meta">
@@ -390,11 +390,6 @@ a{color:inherit}
                         <strong>
                             ₱{{ "{:,.2f}".format(product.base_price) }}
                         </strong>
-                    </div>
-
-                    <div class="meta-item">
-                        <span>Markup</span>
-                        <strong>{{ product.markup }}%</strong>
                     </div>
 
                 </div>
@@ -439,7 +434,7 @@ a{color:inherit}
 
                         <input type="hidden" name="product" value="{{ product.name }}">
 
-                        <input type="hidden" name="price" value="{{ product.base_price * (1 + product.markup / 100) }}">
+                        <input type="hidden" name="price" value="{{ product.base_price }}">
 
                         <label class="quantity-label">
                             Quantity
@@ -482,7 +477,7 @@ a{color:inherit}
 
                         <input type="hidden" name="product" value="{{ product.name }}">
 
-                        <input type="hidden" name="price" value="{{ product.base_price * (1 + product.markup / 100) }}">
+                        <input type="hidden" name="price" value="{{ product.base_price }}">
 
                         <input type="hidden" name="quantity" value="1" id="buyNowQuantity">
 

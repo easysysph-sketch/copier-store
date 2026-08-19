@@ -1125,7 +1125,7 @@
             </div>
             <strong style="display:block;margin-top:8px;font-size:13px;">{{ product.name }}</strong>
             <span style="display:block;margin-top:4px;color:#2563eb;font-weight:900;font-size:13px;">
-                ₱{{ "{:,.2f}".format(product.base_price * (1 + product.markup / 100)) }}
+                ₱{{ "{:,.2f}".format(product.base_price) }}
             </span>
         </a>
         {% endfor %}

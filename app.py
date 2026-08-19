@@ -2118,7 +2118,7 @@ def add_to_cart():
     # Prefer the server-side catalog price. The submitted hidden price is
     # retained only for backwards compatibility with older forms.
     try:
-        catalog_price = float(product_row[1] or 0) * (1 + float(product_row[2] or 0) / 100)
+        catalog_price = float(product_row[1] or 0)
     except (TypeError, ValueError):
         catalog_price = 0.0
 
@@ -2212,7 +2212,7 @@ def buy_now():
     # =========================================================
 
     try:
-        price = round(float(product_row[1] or 0) * (1 + float(product_row[2] or 0) / 100), 2)
+        price = round(float(product_row[1] or 0), 2)
     except (TypeError, ValueError):
         return "This product does not have a valid price.", 400
     if price <= 0:
@@ -2590,7 +2590,7 @@ def customer_ai_api():
         else:
             lines = []
             for row in in_stock[:20]:
-                price = float(row["base_price"] or 0) * (1 + float(row["markup"] or 0) / 100)
+                price = float(row["base_price"] or 0)
                 lines.append(f"• **{row['name']}** — ₱{price:,.2f} · {int(row['stock'])} in stock")
             answer = "🛍️ **Products currently in stock:**\n\n" + "\n".join(lines)
             if len(in_stock) > 20:
@@ -2628,7 +2628,7 @@ def customer_ai_api():
     # Build a compact, non-sensitive store context for the model.
     product_lines = []
     for p_row in products:
-        price = float(p_row["base_price"] or 0) * (1 + float(p_row["markup"] or 0) / 100)
+        price = float(p_row["base_price"] or 0)
         product_lines.append(
             f"- {p_row['name']} | category={p_row['category']} | price=PHP {price:,.2f} | stock={int(p_row['stock'] or 0)} | description={p_row['description'] or 'none'}"
         )
@@ -2784,9 +2784,7 @@ def ask_ai():
 
     for product in db_products:
 
-        selling_price = float(product["base_price"]) * (
-            1 + float(product["markup"] or 0) / 100
-        )
+        selling_price = float(product["base_price"])
 
         store_products.append({
             "name": product["name"],
@@ -5526,8 +5524,7 @@ def place_order():
                 return f"Not enough stock for {product_name}. Only {stock} available.", 400
 
             price = round(
-                float(product_row["base_price"] or 0) *
-                (1 + float(product_row["markup"] or 0) / 100), 2
+                float(product_row["base_price"] or 0), 2
             )
             if price <= 0:
                 return f"{product_name} does not have a valid price.", 400
@@ -6011,11 +6008,11 @@ def add_product():
         category = (request.form.get("category") or "").strip()[:120]
         try:
             base_price = float(request.form.get("base_price", ""))
-            markup = float(request.form.get("markup", 0))
+            markup = 0.0
             stock = int(request.form.get("stock", 0))
         except (TypeError, ValueError):
-            return "Please enter valid price, markup, and stock values.", 400
-        if not name or not category or base_price < 0 or markup < 0 or stock < 0:
+            return "Please enter valid price and stock values.", 400
+        if not name or not category or base_price < 0 or stock < 0:
             return "Please enter valid product details.", 400
         description = request.form.get("description", "").strip()[:5000]
         try:
@@ -6128,7 +6125,7 @@ def edit_product(product_id):
         name = request.form["name"]
         category = request.form["category"]
         base_price = float(request.form["base_price"])
-        markup = float(request.form.get("markup", 0))
+        markup = 0.0
         stock = int(request.form.get("stock", 0))
         description = request.form.get("description", "").strip()[:5000]
         try:

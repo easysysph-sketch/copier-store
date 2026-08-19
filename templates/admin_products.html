@@ -529,21 +529,7 @@
 
                 <div class="price">
 
-                    ₱{{ "{:,.2f}".format(
-                        product.base_price *
-                        (1 + product.markup / 100)
-                    ) }}
-
-                </div>
-
-
-                <div class="base-price">
-
-                    Base price:
                     ₱{{ "{:,.2f}".format(product.base_price) }}
-
-                    · Markup:
-                    {{ product.markup }}%
 
                 </div>
 
