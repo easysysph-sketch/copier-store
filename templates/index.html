@@ -374,6 +374,44 @@
             border-color: var(--blue);
         }
 
+        .store-category-wrap {
+            margin-top: 12px;
+            padding: 12px;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: #fff;
+        }
+        .store-category-label {
+            font-size: 11px;
+            font-weight: 900;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            margin-bottom: 8px;
+        }
+        .store-subcategories {
+            display: none;
+            gap: 7px;
+            flex-wrap: wrap;
+        }
+        .store-subcategories.show { display: flex; }
+        .store-subcategory-btn {
+            border: 1px solid #d1d5db;
+            background: #fff;
+            color: #475569;
+            padding: 7px 11px;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 800;
+        }
+        .store-subcategory-btn:hover, .store-subcategory-btn.active {
+            background: #eff6ff;
+            color: var(--blue);
+            border-color: #93c5fd;
+        }
+
+
         /* PRODUCTS */
 
         .products-grid {
@@ -970,6 +1008,64 @@
                 bottom: 12px;
             }
         }
+
+        /* About + non-refresh store actions */
+        .hero-about-link {
+            display:inline-flex;
+            align-items:center;
+            gap:7px;
+            margin-left:10px;
+            padding:12px 16px;
+            border:1px solid rgba(255,255,255,.22);
+            border-radius:10px;
+            color:#fff;
+            background:rgba(255,255,255,.06);
+            font-weight:800;
+        }
+        .hero-about-link:hover { background:rgba(255,255,255,.12); }
+        .about-section {
+            margin:34px 0 12px;
+            padding:28px;
+            border:1px solid var(--line);
+            border-radius:18px;
+            background:#fff;
+            box-shadow:0 8px 24px rgba(15,23,42,.05);
+        }
+        .about-grid {
+            display:grid;
+            grid-template-columns:1.35fr .65fr;
+            gap:24px;
+            align-items:stretch;
+        }
+        .about-copy p { color:var(--muted); margin-top:10px; max-width:720px; }
+        .about-points { display:grid; gap:10px; }
+        .about-point {
+            padding:13px 15px;
+            border:1px solid var(--line);
+            border-radius:12px;
+            background:var(--soft);
+        }
+        .about-point strong { display:block; margin-bottom:2px; }
+        .about-point span { color:var(--muted); font-size:13px; }
+        .store-action-toast {
+            position:fixed; left:50%; bottom:24px; transform:translate(-50%,18px);
+            opacity:0; pointer-events:none; z-index:9999; display:flex; align-items:center;
+            gap:9px; padding:12px 15px; border-radius:12px; background:#0f172a; color:#fff;
+            box-shadow:0 14px 35px rgba(15,23,42,.22); font-size:13px; font-weight:700;
+            transition:opacity .2s ease, transform .2s ease;
+        }
+        .store-action-toast.show { opacity:1; transform:translate(-50%,0); }
+
+        .brand-filter-panel{margin-top:10px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+        .brand-filter-title{font-size:12px;font-weight:900;color:var(--text);margin-right:4px}
+        .brand-check{display:inline-flex;align-items:center;gap:5px;padding:7px 9px;border:1px solid var(--line);border-radius:999px;background:#f8fafc;font-size:12px;font-weight:700;color:#475569;cursor:pointer}
+        .brand-check input{accent-color:var(--blue)}
+        .stock.low{color:#92400e;background:#fef3c7}
+        .compat-chip{display:inline-flex;margin-top:7px;padding:5px 8px;border-radius:999px;background:#f1f5f9;color:#475569;font-size:10px;font-weight:700}
+        @media (max-width:760px) {
+            .hero-about-link { margin-left:0; margin-top:8px; }
+            .about-grid { grid-template-columns:1fr; }
+        }
     </style>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
 </head>
@@ -990,6 +1086,10 @@
 
         <a href="#products">
             Products
+        </a>
+
+        <a href="/about">
+            About
         </a>
 
         <a href="/support" class="ai-nav-link">
@@ -1047,6 +1147,10 @@
 
                 <a href="/support" class="hero-secondary">
                     ✨ Get AI Support
+                </a>
+
+                <a href="/about" class="hero-about-link">
+                    ℹ️ About CopierStore
                 </a>
 
             </div>
@@ -1123,12 +1227,61 @@
             </div>
 
             <div class="category-buttons">
-                <button type="button" onclick="filterProducts('all', this)" class="category-btn active">All</button>
-                {% for category in categories %}
-                <button type="button" onclick='filterProducts({{ category.name|tojson }}, this)' class="category-btn">
-                    {{ category.icon or '📦' }} {{ category.name }}
-                </button>
-                {% endfor %}
+                <button type="button" onclick="selectStoreCategory('all', this)" class="category-btn active">All</button>
+                <button type="button" onclick="selectStoreCategory('Photocopiers', this)" class="category-btn">📠 Photocopiers</button>
+                <button type="button" onclick="selectStoreCategory('Printers', this)" class="category-btn">🖨️ Printers</button>
+                <button type="button" onclick="selectStoreCategory('Toner & Consumables', this)" class="category-btn">🧴 Toner & Consumables</button>
+                <button type="button" onclick="selectStoreCategory('Spare Parts', this)" class="category-btn">⚙️ Spare Parts</button>
+                <button type="button" onclick="selectStoreCategory('Office Supplies', this)" class="category-btn">📎 Office Supplies</button>
+            </div>
+
+            <div class="store-category-wrap">
+                <div class="store-category-label" id="subcategoryLabel">Choose a category to browse by brand/type</div>
+                <div id="subcategories-all" class="store-subcategories show">
+                    <span style="font-size:12px;color:var(--muted);">Select a category above to see its subcategories.</span>
+                </div>
+                <div id="subcategories-Photocopiers" class="store-subcategories">
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Photocopiers','all',this)">All</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Photocopiers','Xerox',this)">Xerox</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Photocopiers','Fuji Xerox',this)">Fuji Xerox</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Photocopiers','Konica Minolta',this)">Konica Minolta</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Photocopiers','Canon',this)">Canon</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Photocopiers','Ricoh',this)">Ricoh</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Photocopiers','Kyocera',this)">Kyocera</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Photocopiers','Sharp',this)">Sharp</button>
+                </div>
+                <div id="subcategories-Printers" class="store-subcategories">
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Printers','all',this)">All</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Printers','Laser Printer',this)">Laser Printer</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Printers','Inkjet Printer',this)">Inkjet Printer</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Printers','Multifunction Printer',this)">Multifunction Printer</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Printers','Dot Matrix',this)">Dot Matrix</button>
+                </div>
+                <div id="subcategories-Toner & Consumables" class="store-subcategories">
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Toner & Consumables','all',this)">All</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Toner & Consumables','Black Toner',this)">Black Toner</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Toner & Consumables','Color Toner',this)">Color Toner</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Toner & Consumables','Developer',this)">Developer</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Toner & Consumables','Drum',this)">Drum</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Toner & Consumables','Waste Toner',this)">Waste Toner</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Toner & Consumables','Ink Cartridge',this)">Ink Cartridge</button>
+                </div>
+                <div id="subcategories-Spare Parts" class="store-subcategories">
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Spare Parts','all',this)">All</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Spare Parts','Drum Unit',this)">Drum Unit</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Spare Parts','Fuser Unit',this)">Fuser Unit</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Spare Parts','Transfer Belt',this)">Transfer Belt</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Spare Parts','Pickup Roller',this)">Pickup Roller</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Spare Parts','Maintenance Kit',this)">Maintenance Kit</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Spare Parts','Other Parts',this)">Other Parts</button>
+                </div>
+                <div id="subcategories-Office Supplies" class="store-subcategories">
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Office Supplies','all',this)">All</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Office Supplies','Bond Paper',this)">Bond Paper</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Office Supplies','Specialty Paper',this)">Specialty Paper</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Office Supplies','Labels',this)">Labels</button>
+                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Office Supplies','Filing Supplies',this)">Filing Supplies</button>
+                </div>
             </div>
 
         </div>
@@ -1141,6 +1294,10 @@
                 class="product-card"
                 data-category="{{ product.category }}"
                 data-price="{{ product.base_price }}"
+                data-name="{{ product.name|e }}"
+                data-brand="{{ (product.brand or '')|e }}"
+                data-model="{{ (product.model or '')|e }}"
+                data-compatible="{{ (product.compatible_models or '')|e }}"
             >
 
                 <div class="product-media">
@@ -1187,18 +1344,12 @@
                         {{ product.category }}
                     </div>
 
-                    {% if product.stock > 0 %}
-
-                        <span class="stock">
-                            ✓ {{ product.stock }} in stock
-                        </span>
-
+                    {% if product.stock <= 0 %}
+                        <span class="stock out">🔴 Out of stock</span>
+                    {% elif product.stock <= 3 %}
+                        <span class="stock low">🟡 Low stock · Only {{ product.stock }} left</span>
                     {% else %}
-
-                        <span class="stock out">
-                            Out of stock
-                        </span>
-
+                        <span class="stock">🟢 In stock · {{ product.stock }} available</span>
                     {% endif %}
 
                 </div>
@@ -1215,8 +1366,11 @@
                 </h3>
 
                 <p class="product-description">
-                    Quality {{ product.category|lower }} for office use.
+                    {{ product.description or ('Quality ' ~ product.category|lower ~ ' for office use.') }}
                 </p>
+                {% if product.brand or product.model %}
+                    <span class="compat-chip">{{ product.brand or '' }}{% if product.brand and product.model %} · {% endif %}{{ product.model or '' }}</span>
+                {% endif %}
 
                 <div class="price">
                     ₱{{ "{:,.2f}".format(product.base_price) }}
@@ -1345,181 +1499,6 @@
     </section>
 
 
-    <section class="store-proof">
-
-        <div class="section-heading">
-            <div>
-                <div class="eyebrow">Visit the store</div>
-                <h2>Real store. Real products. Real support.</h2>
-                <p>See where CopierStore operates and where your orders can be picked up.</p>
-            </div>
-        </div>
-
-        <div class="store-proof-grid">
-
-            <div class="store-gallery" id="storeGallery">
-                <div class="store-slide active">
-                    <img src="{{ url_for('static', filename='store-gallery/office-9.jpg') }}" alt="CopierStore delivery and loading area">
-                    <div class="store-slide-caption">Delivery and loading operations</div>
-                </div>
-                <div class="store-slide">
-                    <img src="{{ url_for('static', filename='store-gallery/office-1.jpg') }}" alt="CopierStore developer supplies">
-                    <div class="store-slide-caption">Developer and copier supplies in stock</div>
-                </div>
-                <div class="store-slide">
-                    <img src="{{ url_for('static', filename='store-gallery/office-4.jpg') }}" alt="CopierStore stockroom">
-                    <div class="store-slide-caption">Stockroom and inventory area</div>
-                </div>
-                <div class="store-slide">
-                    <img src="{{ url_for('static', filename='store-gallery/office-8.jpg') }}" alt="CopierStore copier parts">
-                    <div class="store-slide-caption">Copier parts and supplies</div>
-                </div>
-                <div class="store-slide">
-                    <img src="{{ url_for('static', filename='store-gallery/office-5.jpg') }}" alt="CopierStore toner supplies">
-                    <div class="store-slide-caption">Toner supplies</div>
-                </div>
-                <div class="store-slide">
-                    <img src="{{ url_for('static', filename='store-gallery/office-10.jpg') }}" alt="CopierStore technician at work">
-                    <div class="store-slide-caption">Equipment servicing and maintenance</div>
-                </div>
-                <div class="store-slide">
-                    <img src="{{ url_for('static', filename='store-gallery/office-3.jpg') }}" alt="CopierStore equipment service">
-                    <div class="store-slide-caption">On-site equipment servicing</div>
-                </div>
-                <div class="store-slide">
-                    <img src="{{ url_for('static', filename='store-gallery/office-7.jpg') }}" alt="CopierStore service team">
-                    <div class="store-slide-caption">Service team working on office equipment</div>
-                </div>
-                <div class="store-slide">
-                    <img src="{{ url_for('static', filename='store-gallery/office-2.jpg') }}" alt="CopierStore copier repair">
-                    <div class="store-slide-caption">Copier repair and diagnostics</div>
-                </div>
-
-                <button type="button" class="gallery-arrow gallery-prev" onclick="moveStoreSlide(-1)" aria-label="Previous store photo">‹</button>
-                <button type="button" class="gallery-arrow gallery-next" onclick="moveStoreSlide(1)" aria-label="Next store photo">›</button>
-
-                <div class="gallery-dots" id="galleryDots" aria-label="Store photo navigation"></div>
-            </div>
-
-            <div class="store-info-card">
-                <div class="eyebrow">CopierStore Cebu</div>
-                <h2>Find us in Cebu City.</h2>
-                <p>For pickup, deliveries, and in-person inquiries, visit our store during business hours.</p>
-
-                <div class="store-detail">
-                    <div class="store-detail-icon">📍</div>
-                    <div>
-                        <strong>Store address</strong>
-                        <span>Cebu Kang Ha Building, Osmeña Blvd, Cebu City, 6000 Cebu</span>
-                    </div>
-                </div>
-
-                <div class="store-detail">
-                    <div class="store-detail-icon">🚚</div>
-                    <div>
-                        <strong>Pickup & delivery time</strong>
-                        <span>8:00 AM – 5:00 PM, Monday to Friday</span>
-                    </div>
-                </div>
-
-                <div class="store-hours">
-                    🕘 Orders for pickup and delivery are handled during Monday–Friday, 8:00 AM–5:00 PM.
-                </div>
-
-                <a class="store-map-link" href="https://www.google.com/maps/search/?api=1&query=Cebu+Kang+Ha+Building+Osme%C3%B1a+Blvd+Cebu+City+6000+Cebu" target="_blank" rel="noopener">
-                    📍 Open in Google Maps
-                </a>
-            </div>
-
-        </div>
-
-    </section>
-
-    <section class="services">
-
-        <div class="section-heading">
-
-            <div>
-                <div class="eyebrow">More than products</div>
-                <h2>Support for your office</h2>
-                <p>Get help before and after your purchase.</p>
-            </div>
-
-        </div>
-
-        <div class="service-grid">
-
-            <article class="service-card">
-
-                <div class="service-icon">
-                    🔧
-                </div>
-
-                <h3>Repair Services</h3>
-
-                <p>
-                    Having trouble with your copier or office equipment?
-                    Send a repair request and get support.
-                </p>
-
-                <a href="/repair" class="service-link">
-                    Request a repair →
-                </a>
-
-            </article>
-
-            <article class="service-card featured">
-
-                <div class="service-icon">
-                    ✨
-                </div>
-
-                <h3>AI Support</h3>
-
-                <p>
-                    Need help choosing equipment, troubleshooting a problem,
-                    or finding the right supply?
-                </p>
-
-                <a href="/support" class="service-link">
-                    Talk to AI Support →
-                </a>
-
-            </article>
-
-            <article class="service-card">
-
-                <div class="service-icon">
-                    📦
-                </div>
-
-                <h3>Easy Ordering</h3>
-
-                <p>
-                    Add products to your cart, choose delivery, and manage
-                    your orders from your customer account.
-                </p>
-
-                {% if customer %}
-
-                    <a href="/customer-dashboard" class="service-link">
-                        View my account →
-                    </a>
-
-                {% else %}
-
-                    <a href="/customer-login" class="service-link">
-                        Sign in to your account →
-                    </a>
-
-                {% endif %}
-
-            </article>
-
-        </div>
-
-    </section>
-
     <footer>
 
         <div>
@@ -1527,12 +1506,14 @@
         </div>
 
         <div>
-            Reliable products · Delivery · Repair support
+            Reliable products · Delivery · Repair support · <a href="/supplier/login" style="color:#64748b;font-weight:800;">Supplier Portal</a>
         </div>
 
     </footer>
 
 </main>
+
+<div id="storeActionToast" class="store-action-toast" role="status" aria-live="polite"></div>
 
 <a href="/support" class="ai-button">
     ✨ AI Support
@@ -1540,6 +1521,60 @@
 
 <script>
 
+
+    // Keep Add to Cart / Wishlist actions on the current page.
+    // The server still receives the same POST request; we only prevent the browser
+    // from navigating away or visibly refreshing the homepage.
+    function showStoreToast(message) {
+        const toast = document.getElementById("storeActionToast");
+        if (!toast) return;
+        toast.textContent = message;
+        toast.classList.add("show");
+        clearTimeout(window.__storeToastTimer);
+        window.__storeToastTimer = setTimeout(() => toast.classList.remove("show"), 2200);
+    }
+
+    async function handleStoreActionForm(event) {
+        const form = event.target.closest("form");
+        if (!form) return;
+        const action = (form.getAttribute("action") || "").toLowerCase();
+        const isCart = action.includes("add-to-cart") || action.includes("add_to_cart");
+        const isWishlist = action.includes("wishlist");
+        if (!isCart && !isWishlist) return;
+
+        event.preventDefault();
+        const button = form.querySelector('button[type="submit"]');
+        if (button) button.disabled = true;
+
+        try {
+            const response = await fetch(form.action, {
+                method: "POST",
+                body: new FormData(form),
+                credentials: "same-origin",
+                headers: { "X-Requested-With": "XMLHttpRequest", "Accept": "text/html,application/json" }
+            });
+
+            if (!response.ok) throw new Error("Request failed");
+
+            showStoreToast(isCart ? "🛒 Added to cart!" : "♡ Added to wishlist!");
+
+            // If the server exposes a cart/wishlist count in the response, use it.
+            // Otherwise leave the existing navigation alone so we do not risk changing
+            // the stable server-side behavior.
+            const text = await response.text();
+            const countMatch = text.match(/(?:cart|wishlist)[^\d]{0,30}(\d+)/i);
+            if (isCart && countMatch) {
+                document.querySelectorAll(".cart-count").forEach(el => el.textContent = countMatch[1]);
+            }
+        } catch (error) {
+            console.error("Store action failed:", error);
+            showStoreToast("⚠️ Something went wrong. Please try again.");
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
+    document.addEventListener("submit", handleStoreActionForm);
 
     let storeSlideIndex = 0;
 
@@ -1574,6 +1609,15 @@
     initStoreGallery();
 
     let selectedCategory = "all";
+    let selectedSubcategory = "all";
+
+    const storeCategoryMap = {
+        "Photocopiers": ["Photocopier", "Xerox Machines"],
+        "Printers": ["Printers"],
+        "Toner & Consumables": ["Toner", "Ink & Ink Cartridges"],
+        "Spare Parts": ["Spare Parts"],
+        "Office Supplies": ["Office Supplies", "Office Equipment"]
+    };
 
     function applyFilters() {
 
@@ -1594,25 +1638,32 @@
 
         cards.forEach(card => {
 
-            const name =
-                card
-                    .querySelector("h3")
-                    .innerText
-                    .toLowerCase();
+            const name = (card.dataset.name || "").toLowerCase();
+            const category = (card.dataset.category || "").toLowerCase();
+            const brand = (card.dataset.brand || "").toLowerCase();
+            const model = (card.dataset.model || "").toLowerCase();
+            const compatible = (card.dataset.compatible || "").toLowerCase();
+            const cardText = (card.innerText || "").toLowerCase();
+            const haystack = `${name} ${category} ${brand} ${model} ${compatible} ${cardText}`;
 
-            const category =
-                card.dataset.category.toLowerCase();
+            // Search is intentionally forgiving: users can type machine models,
+            // toner/part phrases, or brand + product terms in any order.
+            const normalizedSearch = search.replace(/[^a-z0-9]+/g, " ").trim();
+            const searchTokens = normalizedSearch ? normalizedSearch.split(/\s+/).filter(Boolean) : [];
+            const synonymHaystack = haystack.replace(/[^a-z0-9]+/g, " ");
+            const matchesSearch = !searchTokens.length || searchTokens.every(token => synonymHaystack.includes(token));
 
-            const price =
-                parseFloat(card.dataset.price);
+            const selectedBrands = Array.from(document.querySelectorAll('.brand-check input:checked')).map(input => input.value);
+            const matchesBrand = !selectedBrands.length || selectedBrands.some(selected => haystack.includes(selected));
 
-            const matchesSearch =
-                name.includes(search) ||
-                category.includes(search);
-
+            const allowedCategories = storeCategoryMap[selectedCategory] || [];
             const matchesCategory =
                 selectedCategory === "all" ||
-                card.dataset.category === selectedCategory;
+                allowedCategories.includes(card.dataset.category);
+
+            const matchesSubcategory =
+                selectedSubcategory === "all" ||
+                cardText.includes(selectedSubcategory.toLowerCase());
 
             let matchesPrice = true;
 
@@ -1628,7 +1679,9 @@
 
             const visible =
                 matchesSearch &&
+                matchesBrand &&
                 matchesCategory &&
+                matchesSubcategory &&
                 matchesPrice;
 
             card.style.display =
@@ -1644,19 +1697,40 @@
             visibleCount === 0 ? "block" : "none";
     }
 
-    function filterProducts(category, button) {
-
+    function selectStoreCategory(category, button) {
         selectedCategory = category;
+        selectedSubcategory = "all";
 
-        document
-            .querySelectorAll(".category-btn")
-            .forEach(btn => {
-                btn.classList.remove("active");
-            });
-
+        document.querySelectorAll(".category-btn").forEach(btn => btn.classList.remove("active"));
         button.classList.add("active");
+        document.querySelectorAll(".store-subcategories").forEach(el => el.classList.remove("show"));
 
+        const panel = document.getElementById("subcategories-" + category);
+        const label = document.getElementById("subcategoryLabel");
+        if (panel) {
+            panel.classList.add("show");
+            const first = panel.querySelector(".store-subcategory-btn");
+            if (first) {
+                panel.querySelectorAll(".store-subcategory-btn").forEach(btn => btn.classList.remove("active"));
+                first.classList.add("active");
+            }
+        }
+        if (label) label.textContent = category === "all" ? "Choose a category to browse by brand/type" : category + " — choose a brand/type";
         applyFilters();
+    }
+
+    function selectSubcategory(category, subcategory, button) {
+        selectedCategory = category;
+        selectedSubcategory = subcategory;
+        const panel = button.closest(".store-subcategories");
+        if (panel) panel.querySelectorAll(".store-subcategory-btn").forEach(btn => btn.classList.remove("active"));
+        button.classList.add("active");
+        applyFilters();
+    }
+
+    function filterProducts(category, button) {
+        const mapped = Object.keys(storeCategoryMap).find(key => (storeCategoryMap[key] || []).includes(category)) || category;
+        selectStoreCategory(mapped, button);
     }
 
     function changeQuantity(button, amount) {

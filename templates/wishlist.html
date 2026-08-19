@@ -29,6 +29,8 @@
         .wishlist-empty .icon{font-size:55px;color:#e11d48;margin-bottom:10px}.wishlist-empty p{color:#64748b;margin:7px 0 18px}
         .wishlist-empty a{display:inline-flex;padding:11px 17px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-weight:850}
         @media(max-width:900px){.wishlist-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        .wishlist-action-toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,14px);z-index:2147483647;opacity:0;visibility:hidden;pointer-events:none;padding:12px 16px;border-radius:12px;background:#0f172a;color:#fff;box-shadow:0 16px 40px rgba(15,23,42,.22);font-size:13px;font-weight:800;transition:opacity .2s ease,transform .2s ease,visibility .2s ease}
+        .wishlist-action-toast.show{opacity:1;visibility:visible;transform:translate(-50%,0)}
         @media(max-width:560px){.wishlist-head{align-items:start;flex-direction:column}.wishlist-grid{grid-template-columns:1fr}}
     </style>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
@@ -57,7 +59,7 @@
         {% for product in products %}
         {% set price = product.base_price %}
         <article class="wishlist-card">
-            <form action="/wishlist/toggle/{{ product.id }}" method="POST">
+            <form action="/wishlist/toggle/{{ product.id }}" method="POST" onsubmit="removeWishlistItem(event, this)">
                 <button class="wishlist-remove" type="submit" title="Remove from wishlist" aria-label="Remove {{ product.name }}">♥</button>
             </form>
             <a href="/product/{{ product.name }}" class="wishlist-image">
@@ -78,7 +80,7 @@
             <div class="wishlist-actions">
                 <a class="wishlist-view" href="/product/{{ product.name }}">View product</a>
                 {% if product.stock > 0 %}
-                <form action="/add-to-cart" method="POST">
+                <form action="/add-to-cart" method="POST" onsubmit="addWishlistItemToCart(event, this)">
                     <input type="hidden" name="product" value="{{ product.name }}">
                     <input type="hidden" name="price" value="{{ price }}">
                     <input type="hidden" name="quantity" value="1">
@@ -100,5 +102,54 @@
     </div>
     {% endif %}
 </main>
+
+<div id="wishlistActionToast" class="wishlist-action-toast" role="status" aria-live="polite"></div>
+
+<script>
+let wishlistToastTimer;
+function showWishlistToast(message){
+    const toast=document.getElementById("wishlistActionToast");
+    if(!toast)return;
+    toast.textContent=message;
+    toast.classList.add("show");
+    clearTimeout(wishlistToastTimer);
+    wishlistToastTimer=setTimeout(()=>toast.classList.remove("show"),1700);
+}
+
+async function removeWishlistItem(event, form){
+    event.preventDefault();
+    const card=form.closest(".wishlist-card");
+    try{
+        const response=await fetch(form.action,{method:"POST",body:new FormData(form),credentials:"same-origin",headers:{"X-Requested-With":"XMLHttpRequest"}});
+        const data=await response.json();
+        if(response.status===401 && data.login_required){window.location.href="/customer-login";return;}
+        if(!response.ok || !data.ok) throw new Error("Wishlist request failed");
+        if(card) card.remove();
+        const count=document.querySelector(".wishlist-count");
+        const remaining=document.querySelectorAll(".wishlist-card").length;
+        if(count) count.textContent=remaining+" saved";
+        showWishlistToast("♡ Removed from wishlist");
+        if(remaining===0){
+            const grid=document.querySelector(".wishlist-grid");
+            if(grid){grid.outerHTML='<div class="wishlist-empty"><div class="icon">♡</div><h2>Nothing saved yet</h2><p>Tap the heart on any product to save it here.</p><a href="/">Browse products</a></div>';}
+        }
+    }catch(error){console.error(error);showWishlistToast("Could not update wishlist");}
+}
+
+async function addWishlistItemToCart(event, form){
+    event.preventDefault();
+    const button=form.querySelector("button");
+    const original=button?button.innerHTML:"";
+    if(button){button.disabled=true;button.innerHTML="✓";}
+    try{
+        const response=await fetch(form.action,{method:"POST",body:new FormData(form),credentials:"same-origin",redirect:"follow"});
+        if(response.url.includes("/customer-login")){window.location.href=response.url;return;}
+        if(!response.ok) throw new Error("Add to cart failed");
+        showWishlistToast("✓ Added to cart");
+        if(button)button.innerHTML="✓";
+    }catch(error){console.error(error);showWishlistToast("Could not add to cart");}
+    finally{setTimeout(()=>{if(button){button.innerHTML=original;button.disabled=false;}},900);}
+}
+</script>
 </body>
 </html>

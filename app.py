@@ -507,6 +507,18 @@ def apply_security_headers(response):
             pass
     return response
 
+
+
+# Optional supplier/vendor portal configuration. Credentials are intentionally
+# environment-based so no supplier password is hard-coded into the project.
+SUPPLIER_EMAIL = os.getenv("SUPPLIER_EMAIL", "").strip().lower()
+SUPPLIER_PASSWORD = os.getenv("SUPPLIER_PASSWORD", "")
+try:
+    SUPPLIER_COMMISSION_RATE = float(os.getenv("SUPPLIER_COMMISSION_RATE", "10"))
+except (TypeError, ValueError):
+    SUPPLIER_COMMISSION_RATE = 10.0
+SUPPLIER_COMMISSION_RATE = max(0.0, min(SUPPLIER_COMMISSION_RATE, 100.0))
+
 @app.route("/health")
 def health():
     return jsonify({"status": "ok"})
@@ -591,6 +603,11 @@ def _init_db_full():
             status TEXT DEFAULT 'Pending'
         )
     """)
+
+    try:
+        cursor.execute("ALTER TABLE repair_requests ADD COLUMN video_filename TEXT")
+    except sqlite3.OperationalError:
+        pass
 
     # Configurable CopierStore pickup/store location used by GPS routing.
     cursor.execute("""
@@ -949,6 +966,23 @@ def _init_db_full():
         ("length_cm", "REAL NOT NULL DEFAULT 0"),
         ("width_cm", "REAL NOT NULL DEFAULT 0"),
         ("height_cm", "REAL NOT NULL DEFAULT 0"),
+    ):
+        try:
+            cursor.execute(f"ALTER TABLE products ADD COLUMN {_column} {_definition}")
+        except sqlite3.OperationalError:
+            pass
+
+    # Optional catalog metadata used by the richer storefront/product page.
+    # These are additive migrations only; existing products remain valid.
+    for _column, _definition in (
+        ("brand", "TEXT"),
+        ("model", "TEXT"),
+        ("compatible_models", "TEXT"),
+        ("product_type", "TEXT"),
+        ("condition", "TEXT"),
+        ("print_speed", "TEXT"),
+        ("paper_size", "TEXT"),
+        ("connectivity", "TEXT"),
     ):
         try:
             cursor.execute(f"ALTER TABLE products ADD COLUMN {_column} {_definition}")
@@ -1882,6 +1916,42 @@ def ensure_admin_stock_alerts():
         conn.close()
 
 
+
+@app.route("/supplier/login", methods=["GET", "POST"])
+def supplier_login():
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip().lower()
+        password = request.form.get("password") or ""
+        if not SUPPLIER_EMAIL or not SUPPLIER_PASSWORD:
+            return render_template("supplier_login.html", error="Supplier login is not configured yet. Set SUPPLIER_EMAIL and SUPPLIER_PASSWORD in your environment.")
+        if email == SUPPLIER_EMAIL and password == SUPPLIER_PASSWORD:
+            session["supplier_logged_in"] = True
+            return redirect("/supplier")
+        return render_template("supplier_login.html", error="Invalid supplier credentials.")
+    return render_template("supplier_login.html")
+
+@app.route("/supplier/logout")
+def supplier_logout():
+    session.pop("supplier_logged_in", None)
+    return redirect("/supplier/login")
+
+@app.route("/supplier")
+def supplier_dashboard():
+    if not session.get("supplier_logged_in"):
+        return redirect("/supplier/login")
+    conn = sqlite3.connect("orders.db")
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute("SELECT COALESCE(SUM(total),0) AS total_sales, COUNT(*) AS order_count FROM orders WHERE COALESCE(status,'') NOT IN ('Cancelled','Canceled')")
+    summary = cur.fetchone()
+    cur.execute("SELECT COALESCE(SUM(quantity),0) AS products_sold FROM order_items")
+    sold = cur.fetchone()
+    conn.close()
+    total_sales = float(summary["total_sales"] or 0)
+    commission = round(total_sales * SUPPLIER_COMMISSION_RATE / 100, 2)
+    earnings = round(total_sales - commission, 2)
+    return render_template("supplier_dashboard.html", total_sales=total_sales, order_count=int(summary["order_count"] or 0), products_sold=int(sold["products_sold"] or 0), supplier_earnings=earnings, commission=commission, commission_rate=SUPPLIER_COMMISSION_RATE)
+
 @app.route("/admin")
 def admin():
 
@@ -2317,19 +2387,61 @@ def buy_now():
         shipping_specs=_cart_shipping_specs(buy_now_item)
     )
 
+
+@app.route("/cart/save-for-later/<int:index>", methods=["POST"])
+def save_cart_item(index):
+    if not session.get("customer_id"):
+        return jsonify({"ok": False, "login_required": True}), 401
+    cart = session.get("cart", [])
+    if index < 0 or index >= len(cart):
+        return jsonify({"ok": False, "error": "Cart item not found."}), 404
+    saved = session.get("saved_for_later", [])
+    saved.append(cart.pop(index))
+    session["cart"] = cart
+    session["saved_for_later"] = saved
+    session.modified = True
+    return jsonify({"ok": True})
+
+@app.route("/cart/move-saved/<int:index>", methods=["POST"])
+def move_saved_to_cart(index):
+    if not session.get("customer_id"):
+        return jsonify({"ok": False, "login_required": True}), 401
+    saved = session.get("saved_for_later", [])
+    if index < 0 or index >= len(saved):
+        return jsonify({"ok": False, "error": "Saved item not found."}), 404
+    cart = session.get("cart", [])
+    cart.append(saved.pop(index))
+    session["cart"] = cart
+    session["saved_for_later"] = saved
+    session.modified = True
+    return jsonify({"ok": True})
+
 @app.route("/cart")
 def cart():
 
     cart = session.get("cart", [])
+    saved_for_later = session.get("saved_for_later", [])
 
-    cart_total = 0
+    # Add current stock as display-only metadata without changing the cart schema.
+    conn = sqlite3.connect("orders.db")
+    cur = conn.cursor()
+    stock_by_name = {}
+    names = [str(item.get("product", "")) for item in cart + saved_for_later]
+    if names:
+        placeholders = ",".join(["?"] * len(names))
+        cur.execute(f"SELECT name, stock FROM products WHERE name IN ({placeholders})", names)
+        stock_by_name = {row[0]: int(row[1] or 0) for row in cur.fetchall()}
+    conn.close()
 
-    for item in cart:
-        cart_total += item["price"] * item["quantity"]
+    for item in cart + saved_for_later:
+        item["current_stock"] = stock_by_name.get(str(item.get("product", "")), 0)
+
+    cart_total = sum(float(item["price"]) * int(item["quantity"]) for item in cart)
 
     return render_template(
         "cart.html",
         cart=cart,
+        saved_for_later=saved_for_later,
         cart_total=cart_total
     )
 
@@ -2406,6 +2518,12 @@ def public_store_location():
     """Public store address and map pin so customers can check courier rates themselves."""
     store = get_store_location()
     return render_template("public_store_location.html", store=store)
+
+@app.route("/about")
+def about_page():
+    """Public About page with store details and gallery."""
+    store = get_store_location()
+    return render_template("about.html", store=store)
 
 @app.route("/set-delivery", methods=["POST"])
 def set_delivery():
@@ -4947,6 +5065,21 @@ def repair_photo(filename):
     return send_from_directory(os.path.join(PRIVATE_UPLOAD_FOLDER, "repairs"), filename)
 
 
+@app.route("/repair-video/<path:filename>")
+def repair_video(filename):
+    if not session.get("admin_logged_in") and not session.get("customer_id"):
+        return redirect("/customer-login")
+    conn = sqlite3.connect("orders.db")
+    conn.row_factory = sqlite3.Row
+    row = conn.execute("SELECT customer_id FROM repair_requests WHERE video_filename = ?", (filename,)).fetchone()
+    conn.close()
+    if not row:
+        return "Video not found", 404
+    if not session.get("admin_logged_in") and row["customer_id"] != session.get("customer_id"):
+        return "Forbidden", 403
+    return send_from_directory(os.path.join(PRIVATE_UPLOAD_FOLDER, "repairs"), filename)
+
+
 @app.route("/repair", methods=["GET", "POST"])
 def repair():
 
@@ -5035,6 +5168,23 @@ def repair():
             photo_filename = f"repair_{uuid.uuid4().hex}.{ext}"
             photo.save(os.path.join(upload_folder, photo_filename))
 
+        # Optional short problem video. This is additive; photos remain supported.
+        video = request.files.get("problem_video")
+        video_filename = None
+        if video and video.filename:
+            allowed_video_ext = {"mp4", "mov", "webm", "m4v"}
+            ext = video.filename.rsplit(".", 1)[1].lower() if "." in video.filename else ""
+            if ext not in allowed_video_ext:
+                conn.close()
+                return render_template("repair.html", customer=customer, addresses=addresses, error="Invalid video. Please upload MP4, MOV, WEBM, or M4V."), 400
+            if video.content_length and video.content_length > 25 * 1024 * 1024:
+                conn.close()
+                return render_template("repair.html", customer=customer, addresses=addresses, error="Video is too large. Please keep it under 25 MB."), 400
+            upload_folder = os.path.join(PRIVATE_UPLOAD_FOLDER, "repairs")
+            os.makedirs(upload_folder, exist_ok=True)
+            video_filename = f"repair_{uuid.uuid4().hex}.{ext}"
+            video.save(os.path.join(upload_folder, video_filename))
+
         # Make sure repair table exists
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS repair_requests (
@@ -5110,6 +5260,13 @@ def repair():
             """)
         except sqlite3.OperationalError:
             pass
+        try:
+            cursor.execute("""
+                ALTER TABLE repair_requests
+                ADD COLUMN video_filename TEXT
+            """)
+        except sqlite3.OperationalError:
+            pass
 
         # Save repair request
         cursor.execute("""
@@ -5125,9 +5282,10 @@ def repair():
                 location,
                 latitude,
                 longitude,
-                photo_filename
+                photo_filename,
+                video_filename
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             customer_id,
             selected_address["recipient_name"],
@@ -5139,7 +5297,8 @@ def repair():
             selected_address["location"],
             selected_address["latitude"],
             selected_address["longitude"],
-            photo_filename
+            photo_filename,
+            video_filename
         ))
 
         request_id = cursor.lastrowid
@@ -5303,19 +5462,37 @@ def product_details(product_name):
     """, (product["id"],))
 
     reviews = cursor.fetchall()
+    average_rating = round(sum(float(r["rating"] or 0) for r in reviews) / len(reviews), 1) if reviews else 0
 
-    # Get logged-in customer
+    # Conservative cross-sell recommendations: only closely related office categories.
+    category = (product["category"] or "").lower()
+    if "photocop" in category or "xerox" in category:
+        related_categories = ["Toner", "Ink & Ink Cartridges", "Spare Parts", "Office Supplies"]
+    elif "toner" in category or "ink" in category:
+        related_categories = ["Photocopier", "Xerox Machines", "Spare Parts", "Office Supplies"]
+    elif "spare" in category:
+        related_categories = ["Toner", "Ink & Ink Cartridges", "Photocopier", "Xerox Machines"]
+    elif "printer" in category:
+        related_categories = ["Toner", "Ink & Ink Cartridges", "Office Supplies"]
+    else:
+        related_categories = [product["category"]]
+    placeholders = ",".join(["?"] * len(related_categories))
+    cursor.execute(f"SELECT * FROM products WHERE category IN ({placeholders}) AND id != ? AND stock > 0 ORDER BY id DESC LIMIT 4", (*related_categories, product["id"]))
+    recommended_products = cursor.fetchall()
+
+    # Get logged-in customer and wishlist state.
     customer = None
+    is_wishlisted = False
 
     if session.get("customer_id"):
-
         cursor.execute("""
             SELECT id, name, email
             FROM customers
             WHERE id = ?
         """, (session["customer_id"],))
-
         customer = cursor.fetchone()
+        cursor.execute("SELECT 1 FROM wishlist WHERE customer_id = ? AND product_id = ?", (session["customer_id"], product["id"]))
+        is_wishlisted = cursor.fetchone() is not None
 
     conn.close()
 
@@ -5323,6 +5500,10 @@ def product_details(product_name):
         "product.html",
         product=product,
         reviews=reviews,
+        average_rating=average_rating,
+        review_count=len(reviews),
+        recommended_products=recommended_products,
+        is_wishlisted=is_wishlisted,
         customer=customer
     )
 
@@ -6015,6 +6196,14 @@ def add_product():
         if not name or not category or base_price < 0 or stock < 0:
             return "Please enter valid product details.", 400
         description = request.form.get("description", "").strip()[:5000]
+        brand = request.form.get("brand", "").strip()[:120]
+        model = request.form.get("model", "").strip()[:120]
+        compatible_models = request.form.get("compatible_models", "").strip()[:2000]
+        product_type = request.form.get("product_type", "").strip()[:120]
+        condition = request.form.get("condition", "").strip()[:120]
+        print_speed = request.form.get("print_speed", "").strip()[:120]
+        paper_size = request.form.get("paper_size", "").strip()[:120]
+        connectivity = request.form.get("connectivity", "").strip()[:200]
         try:
             weight_kg, length_cm, width_cm, height_cm = _parse_product_specs(request.form)
         except ValueError as exc:
@@ -6046,18 +6235,13 @@ def add_product():
 
         cursor.execute("""
             INSERT INTO products
-            (name, category, base_price, markup, stock, description, image, images, weight_kg, length_cm, width_cm, height_cm)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (name, category, base_price, markup, stock, description, image, images, weight_kg, length_cm, width_cm, height_cm, brand, model, compatible_models, product_type, condition, print_speed, paper_size, connectivity)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            name,
-            category,
-            base_price,
-            markup,
-            stock,
-            description,
-            image_filenames[0] if image_filenames else None,
-            images_data,
-            weight_kg, length_cm, width_cm, height_cm
+            name, category, base_price, markup, stock, description,
+            image_filenames[0] if image_filenames else None, images_data,
+            weight_kg, length_cm, width_cm, height_cm, brand, model, compatible_models,
+            product_type, condition, print_speed, paper_size, connectivity
         ))
 
         conn.commit()
@@ -6128,6 +6312,14 @@ def edit_product(product_id):
         markup = 0.0
         stock = int(request.form.get("stock", 0))
         description = request.form.get("description", "").strip()[:5000]
+        brand = request.form.get("brand", "").strip()[:120]
+        model = request.form.get("model", "").strip()[:120]
+        compatible_models = request.form.get("compatible_models", "").strip()[:2000]
+        product_type = request.form.get("product_type", "").strip()[:120]
+        condition = request.form.get("condition", "").strip()[:120]
+        print_speed = request.form.get("print_speed", "").strip()[:120]
+        paper_size = request.form.get("paper_size", "").strip()[:120]
+        connectivity = request.form.get("connectivity", "").strip()[:200]
         try:
             weight_kg, length_cm, width_cm, height_cm = _parse_product_specs(request.form)
         except ValueError as exc:
@@ -6145,7 +6337,15 @@ def edit_product(product_id):
                 weight_kg = ?,
                 length_cm = ?,
                 width_cm = ?,
-                height_cm = ?
+                height_cm = ?,
+                brand = ?,
+                model = ?,
+                compatible_models = ?,
+                product_type = ?,
+                condition = ?,
+                print_speed = ?,
+                paper_size = ?,
+                connectivity = ?
             WHERE id = ?
         """, (
             name,
@@ -6155,6 +6355,7 @@ def edit_product(product_id):
             stock,
             description,
             weight_kg, length_cm, width_cm, height_cm,
+            brand, model, compatible_models, product_type, condition, print_speed, paper_size, connectivity,
             product_id
         ))
 

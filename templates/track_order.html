@@ -101,6 +101,10 @@
             font-weight: 600;
         }
 
+
+        .tracking-timeline{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:22px}.track-step{position:relative;text-align:center;font-size:11px;color:#94a3b8}.track-dot{width:30px;height:30px;border-radius:50%;margin:0 auto 7px;display:grid;place-items:center;background:#e2e8f0;color:#64748b;font-weight:900}.track-step.active .track-dot{background:#2563eb;color:white}.track-step.active{color:#1d4ed8;font-weight:800}.track-step::after{content:"";position:absolute;top:15px;left:calc(50% + 18px);right:calc(-50% + 18px);height:2px;background:#e2e8f0}.track-step:last-child::after{display:none}.track-step.active::after{background:#93c5fd}
+        @media(max-width:620px){.tracking-timeline{grid-template-columns:1fr 1fr;gap:15px}.track-step::after{display:none}}
+
     </style>
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
@@ -169,12 +173,17 @@
 
                 <p>
                     <strong>Status:</strong>
-
-                    <span class="status">
-                        {{ order.status }}
-                    </span>
-
+                    <span class="status">{{ order.status }}</span>
                 </p>
+
+                {% set status = (order.status or 'Pending')|lower %}
+                {% set step = 1 if status in ['pending','confirmed','order confirmed'] else 2 if status in ['processing','preparing order','preparing'] else 3 if status in ['out for delivery','out_for_delivery','shipped'] else 4 if status in ['delivered','completed'] else 1 %}
+                <div class="tracking-timeline" aria-label="Order progress">
+                    <div class="track-step active"><div class="track-dot">✓</div>Order Confirmed</div>
+                    <div class="track-step {% if step >= 2 %}active{% endif %}"><div class="track-dot">{% if step >= 2 %}✓{% else %}2{% endif %}</div>Preparing Order</div>
+                    <div class="track-step {% if step >= 3 %}active{% endif %}"><div class="track-dot">{% if step >= 3 %}✓{% else %}3{% endif %}</div>Out for Delivery 🚚</div>
+                    <div class="track-step {% if step >= 4 %}active{% endif %}"><div class="track-dot">{% if step >= 4 %}✓{% else %}4{% endif %}</div>Delivered</div>
+                </div>
 
             </div>
 

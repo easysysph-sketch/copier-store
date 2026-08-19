@@ -271,7 +271,7 @@ a{color:inherit}
 <body>
     <div id="productCartToast" class="product-cart-toast" role="status" aria-live="polite">
         <span class="toast-check">✓</span>
-        <span>Added to cart</span>
+        <span id="productToastMessage">Added to cart</span>
         <a href="/cart">View cart</a>
     </div>
 
@@ -366,8 +366,9 @@ a{color:inherit}
                 </h1>
 
                 <div class="rating-summary">
-                    <span class="stars">★★★★★</span>
-                    <span>Customer reviews</span>
+                    <span class="stars">{% if average_rating %}{{ "★" * (average_rating|round(0, "floor")|int) }}{% else %}★★★★★{% endif %}</span>
+                    <strong>{% if average_rating %}{{ "%.1f"|format(average_rating) }}/5{% else %}No rating yet{% endif %}</strong>
+                    <span>· {{ review_count }} review{% if review_count != 1 %}s{% endif %}</span>
                 </div>
 
                 <p class="price">
@@ -394,18 +395,12 @@ a{color:inherit}
 
                 </div>
 
-                {% if product.stock > 0 %}
-
-                <p class="stock in-stock">
-                    ✅ {{ product.stock }} available
-                </p>
-
+                {% if product.stock <= 0 %}
+                <p class="stock out-stock">🔴 Out of stock</p>
+                {% elif product.stock <= 3 %}
+                <p class="stock" style="color:#92400e;background:#fef3c7">🟡 Low stock · Only {{ product.stock }} left</p>
                 {% else %}
-
-                <p class="stock out-stock">
-                    ❌ Out of stock
-                </p>
-
+                <p class="stock in-stock">🟢 In stock · {{ product.stock }} available</p>
                 {% endif %}
 
                 <div class="product-overview">
@@ -418,6 +413,30 @@ a{color:inherit}
                     </p>
 
                 </div>
+
+                <section class="product-overview" style="margin-top:18px;">
+                    <h2>📊 Specifications</h2>
+                    <div class="product-meta" style="margin-top:12px;margin-bottom:0;">
+                        {% if product.brand %}<div class="meta-item"><span>Brand</span><strong>{{ product.brand }}</strong></div>{% endif %}
+                        {% if product.model %}<div class="meta-item"><span>Model</span><strong>{{ product.model }}</strong></div>{% endif %}
+                        {% if product.product_type %}<div class="meta-item"><span>Type</span><strong>{{ product.product_type }}</strong></div>{% endif %}
+                        {% if product.condition %}<div class="meta-item"><span>Condition</span><strong>{{ product.condition }}</strong></div>{% endif %}
+                        {% if product.print_speed %}<div class="meta-item"><span>Print Speed</span><strong>{{ product.print_speed }}</strong></div>{% endif %}
+                        {% if product.paper_size %}<div class="meta-item"><span>Paper Size</span><strong>{{ product.paper_size }}</strong></div>{% endif %}
+                        {% if product.connectivity %}<div class="meta-item"><span>Connectivity</span><strong>{{ product.connectivity }}</strong></div>{% endif %}
+                        {% if product.weight_kg %}<div class="meta-item"><span>Weight</span><strong>{{ product.weight_kg }} kg</strong></div>{% endif %}
+                    </div>
+                    {% if product.compatible_models %}
+                    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);">
+                        <strong>🖨️ Compatible Models</strong>
+                        <ul style="margin:8px 0 0 18px;color:#64748b;font-size:13px;line-height:1.7;">
+                        {% for model in product.compatible_models.splitlines() %}
+                            {% if model.strip() %}<li>{{ model.strip() }}</li>{% endif %}
+                        {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                </section>
 
                 <div class="purchase-area">
 
@@ -464,7 +483,7 @@ a{color:inherit}
 
                     </form>
 
-                    <form action="/wishlist/toggle/{{ product.id }}" method="POST" style="display:inline-block;margin:0 0 8px 0;">
+                    <form action="/wishlist/toggle/{{ product.id }}" method="POST" style="display:inline-block;margin:0 0 8px 0;" onsubmit="toggleProductWishlist(event, this)">
                             <button type="submit"
                                 class="wishlist-button{% if is_wishlisted %} active{% endif %}"
                                 title="{% if is_wishlisted %}Remove from wishlist{% else %}Add to wishlist{% endif %}"
@@ -528,6 +547,21 @@ a{color:inherit}
 
             
         </div>
+
+        {% if recommended_products %}
+        <section class="reviews-section" style="margin-bottom:26px;">
+            <div class="reviews-header"><div><h2>🔄 You may also need</h2><p class="reviews-subtitle">Related products from the same category.</p></div></div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;">
+            {% for item in recommended_products %}
+                <a href="/product/{{ item.name }}" style="display:block;padding:15px;border:1px solid var(--line);border-radius:14px;background:#fff;text-decoration:none;">
+                    <div style="font-size:11px;color:var(--blue);font-weight:900;text-transform:uppercase;">{{ item.category }}</div>
+                    <strong style="display:block;margin:6px 0;">{{ item.name }}</strong>
+                    <span style="font-weight:900;">₱{{ "{:,.2f}".format(item.base_price) }}</span>
+                </a>
+            {% endfor %}
+            </div>
+        </section>
+        {% endif %}
 
         <div class="reviews-section">
 
@@ -641,6 +675,40 @@ a{color:inherit}
     </main>
 
         <script>
+        async function toggleProductWishlist(event, form) {
+            event.preventDefault();
+            const button = form.querySelector("button");
+            const message = document.getElementById("productToastMessage");
+            try {
+                const response = await fetch(form.action, {
+                    method: "POST",
+                    body: new FormData(form),
+                    credentials: "same-origin",
+                    headers: { "X-Requested-With": "XMLHttpRequest" }
+                });
+                const data = await response.json();
+                if (response.status === 401 && data.login_required) {
+                    window.location.href = "/customer-login";
+                    return;
+                }
+                if (!response.ok || !data.ok) throw new Error("Wishlist request failed");
+                const active = !!data.wishlisted;
+                button.classList.toggle("active", active);
+                button.innerHTML = active ? "♥" : "♡";
+                button.title = active ? "Remove from wishlist" : "Add to wishlist";
+                button.setAttribute("aria-label", button.title);
+                if (message) message.textContent = active ? "♥ Added to wishlist" : "♡ Removed from wishlist";
+                const toast = document.getElementById("productCartToast");
+                toast.classList.add("show");
+                setTimeout(() => toast.classList.remove("show"), 1600);
+            } catch (error) {
+                console.error(error);
+                if (message) message.textContent = "Could not update wishlist";
+                document.getElementById("productCartToast").classList.add("show");
+                setTimeout(() => document.getElementById("productCartToast").classList.remove("show"), 1600);
+            }
+        }
+
         async function addProductToCart(event, form) {
             event.preventDefault();
 

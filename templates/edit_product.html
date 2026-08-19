@@ -378,6 +378,22 @@
                 </div>
 
 
+                <div class="field" style="margin-top:18px;padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;">
+                    <strong style="display:block;margin-bottom:12px;">🖨️ Catalog Specifications</strong>
+                    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
+                        <div><label>Brand</label><input type="text" name="brand" value="{{ product.brand or '' }}" placeholder="e.g. Xerox"></div>
+                        <div><label>Model</label><input type="text" name="model" value="{{ product.model or '' }}" placeholder="e.g. C7030"></div>
+                        <div><label>Type</label><input type="text" name="product_type" value="{{ product.product_type or '' }}" placeholder="e.g. Color Multifunction"></div>
+                        <div><label>Condition</label><input type="text" name="condition" value="{{ product.condition or '' }}" placeholder="e.g. New / Refurbished"></div>
+                        <div><label>Print Speed</label><input type="text" name="print_speed" value="{{ product.print_speed or '' }}" placeholder="e.g. 30 ppm"></div>
+                        <div><label>Paper Size</label><input type="text" name="paper_size" value="{{ product.paper_size or '' }}" placeholder="e.g. A4/A3"></div>
+                        <div><label>Connectivity</label><input type="text" name="connectivity" value="{{ product.connectivity or '' }}" placeholder="e.g. USB/LAN"></div>
+                    </div>
+                    <label style="display:block;margin-top:12px;">Compatible Models</label>
+                    <textarea name="compatible_models" placeholder="One model per line, e.g. ApeosPort C7030&#10;DocuCentre C7030">{{ product.compatible_models or '' }}</textarea>
+                    <small style="color:#64748b;display:block;margin-top:5px;">Optional. This appears on the product page and helps customers check toner/part compatibility.</small>
+                </div>
+
                 <div class="shipping-specs">
                     <div class="shipping-title">🚚 Shipping & Package Details</div>
                     <div class="shipping-help">Enter the packed item's approximate size. Weight is in kg; dimensions are in cm (L × W × H). These help choose a suitable courier vehicle for bulky copier orders.</div>
