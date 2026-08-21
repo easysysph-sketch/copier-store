@@ -2848,8 +2848,15 @@ def storefront_home():
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM products ORDER BY id DESC")
             products = cursor.fetchall()
-            cursor.execute("SELECT name, icon FROM product_categories ORDER BY id ASC")
+            cursor.execute("SELECT id, name, icon FROM product_categories ORDER BY id ASC")
             categories = cursor.fetchall()
+
+            cursor.execute("""
+                SELECT id, category_id, category, name
+                FROM product_subcategories
+                ORDER BY id ASC
+            """)
+            subcategories = cursor.fetchall()
 
             # Keep the storefront aware of the currently signed-in customer.
             # The previous route only passed products/categories, so after a
@@ -2865,7 +2872,13 @@ def storefront_home():
                     session.pop("customer_id", None)
 
             conn.close()
-            return render_template(candidate, products=products, categories=categories, customer=customer)
+            return render_template(
+                candidate,
+                products=products,
+                categories=categories,
+                subcategories=subcategories,
+                customer=customer
+            )
     return redirect("/customer-login")
 
 
@@ -6334,8 +6347,15 @@ def admin_products():
 
     products = cursor.fetchall()
 
-    cursor.execute("SELECT name, icon FROM product_categories ORDER BY id ASC")
+    cursor.execute("SELECT id, name, icon FROM product_categories ORDER BY id ASC")
     categories = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT id, category_id, category, name
+        FROM product_subcategories
+        ORDER BY id ASC
+    """)
+    subcategories = cursor.fetchall()
 
     conn.close()
 

@@ -1227,12 +1227,19 @@
             </div>
 
             <div class="category-buttons">
-                <button type="button" onclick="selectStoreCategory('all', this)" class="category-btn active">All</button>
-                <button type="button" onclick="selectStoreCategory('Photocopiers', this)" class="category-btn">📠 Photocopiers</button>
-                <button type="button" onclick="selectStoreCategory('Printers', this)" class="category-btn">🖨️ Printers</button>
-                <button type="button" onclick="selectStoreCategory('Toner & Consumables', this)" class="category-btn">🧴 Toner & Consumables</button>
-                <button type="button" onclick="selectStoreCategory('Spare Parts', this)" class="category-btn">⚙️ Spare Parts</button>
-                <button type="button" onclick="selectStoreCategory('Office Supplies', this)" class="category-btn">📎 Office Supplies</button>
+                <button type="button"
+                        onclick="selectStoreCategory('all', this)"
+                        class="category-btn active">
+                    All
+                </button>
+
+                {% for category in categories %}
+                    <button type="button"
+                            onclick="selectStoreCategory('{{ category.name|e }}', this)"
+                            class="category-btn">
+                        {{ category.icon or '📦' }} {{ category.name }}
+                    </button>
+                {% endfor %}
             </div>
 
             <div class="store-category-wrap">
@@ -1240,49 +1247,26 @@
                 <div id="subcategories-all" class="store-subcategories show">
                     <span style="font-size:12px;color:var(--muted);">Select a category above to see its subcategories.</span>
                 </div>
-                <div id="subcategories-Photocopiers" class="store-subcategories">
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Photocopiers','all',this)">All</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Photocopiers','Xerox',this)">Xerox</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Photocopiers','Fuji Xerox',this)">Fuji Xerox</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Photocopiers','Konica Minolta',this)">Konica Minolta</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Photocopiers','Canon',this)">Canon</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Photocopiers','Ricoh',this)">Ricoh</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Photocopiers','Kyocera',this)">Kyocera</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Photocopiers','Sharp',this)">Sharp</button>
-                </div>
-                <div id="subcategories-Printers" class="store-subcategories">
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Printers','all',this)">All</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Printers','Laser Printer',this)">Laser Printer</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Printers','Inkjet Printer',this)">Inkjet Printer</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Printers','Multifunction Printer',this)">Multifunction Printer</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Printers','Dot Matrix',this)">Dot Matrix</button>
-                </div>
-                <div id="subcategories-Toner & Consumables" class="store-subcategories">
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Toner & Consumables','all',this)">All</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Toner & Consumables','Black Toner',this)">Black Toner</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Toner & Consumables','Color Toner',this)">Color Toner</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Toner & Consumables','Developer',this)">Developer</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Toner & Consumables','Drum',this)">Drum</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Toner & Consumables','Waste Toner',this)">Waste Toner</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Toner & Consumables','Ink Cartridge',this)">Ink Cartridge</button>
-                </div>
-                <div id="subcategories-Spare Parts" class="store-subcategories">
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Spare Parts','all',this)">All</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Spare Parts','Drum Unit',this)">Drum Unit</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Spare Parts','Fuser Unit',this)">Fuser Unit</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Spare Parts','Transfer Belt',this)">Transfer Belt</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Spare Parts','Pickup Roller',this)">Pickup Roller</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Spare Parts','Maintenance Kit',this)">Maintenance Kit</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Spare Parts','Other Parts',this)">Other Parts</button>
-                </div>
-                <div id="subcategories-Office Supplies" class="store-subcategories">
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Office Supplies','all',this)">All</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Office Supplies','Bond Paper',this)">Bond Paper</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Office Supplies','Specialty Paper',this)">Specialty Paper</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Office Supplies','Labels',this)">Labels</button>
-                    <button type="button" class="store-subcategory-btn" onclick="selectSubcategory('Office Supplies','Filing Supplies',this)">Filing Supplies</button>
-                </div>
-            </div>
+                {% for category in categories %}
+                    <div id="subcategories-{{ category.name }}"
+                        class="store-subcategories">
+                        <button type="button"
+                            class="store-subcategory-btn"
+                            onclick="selectSubcategory('{{ category.name|e }}','all',this)"></button>
+                        All
+                        </button>
+                        {% for subcategory in subcategories %}
+                            {% if subcategory.category_id == category.id %}
+                                <button 
+                                    type="button"
+                                    class="store-subcategory-btn"
+                                    onclick="selectSubcategory('{{ category.name|e }}','{{ subcategory.name|e }}',this)">
+                                  {{ subcategory.name }}
+                                </button>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% endfor %}
 
         </div>
 
