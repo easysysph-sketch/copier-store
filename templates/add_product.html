@@ -332,24 +332,24 @@
                         Category
                     </label>
 
-                    <select name="category" id="categorySelect" required onchange="updateSubcategories()">
+                    <select name="category" id="productCategory" required>
                         <option value="">Select category</option>
                         {% for category in categories %}
-                        <option value="{{ category.name }}" data-category-id="{{ category.id }}">{{ category.icon or '📦' }} {{ category.name }}</option>
+                        <option value="{{ category.name }}">{{ category.icon or '📦' }} {{ category.name }}</option>
                         {% endfor %}
                     </select>
-
-                </div>
 
                 <div class="field">
-                    <label>Subcategory</label>
-                    <select name="subcategory" id="subcategorySelect">
-                        <option value="">No subcategory</option>
-                        {% for sub in subcategories %}
-                        <option value="{{ sub.name }}" data-category-id="{{ sub.category_id }}">🏷️ {{ sub.name }}</option>
-                        {% endfor %}
+                    <label>
+                        Subcategory
+                        <span style="font-weight:500;color:#64748b;">(optional)</span>
+                    </label>
+
+                    <select name="subcategory" id="productSubcategory" disabled>
+                        <option value="">Select a category first</option>
                     </select>
-                    <small style="color:#64748b;">Choose a subcategory after selecting its parent category.</small>
+                </div>
+
                 </div>
 
 
@@ -537,20 +537,45 @@
 
         calculatePrice();
 
-        function updateSubcategories() {
-            const category = document.getElementById("categorySelect");
-            const sub = document.getElementById("subcategorySelect");
-            if (!category || !sub) return;
-            const selected = category.options[category.selectedIndex];
-            const categoryId = selected ? selected.dataset.categoryId : "";
-            Array.from(sub.options).forEach((option, index) => {
-                if (index === 0) { option.hidden = false; return; }
-                const show = option.dataset.categoryId === categoryId;
-                option.hidden = !show;
-                if (!show && option.selected) sub.value = "";
-            });
-        }
-        updateSubcategories();
+    </script>
+
+    <script>
+    const productSubcategories = {{ subcategories|tojson }};
+    const categorySelect = document.getElementById("productCategory");
+    const subcategorySelect = document.getElementById("productSubcategory");
+
+    function updateSubcategories() {
+        const category = categorySelect.value;
+
+        const matches = productSubcategories.filter(
+            item => item.category_name === category
+        );
+
+        subcategorySelect.innerHTML = "";
+
+        const first = document.createElement("option");
+        first.value = "";
+        first.textContent = matches.length
+            ? "No subcategory / General"
+            : "No subcategories available";
+
+        subcategorySelect.appendChild(first);
+
+        matches.forEach(item => {
+            const option = document.createElement("option");
+
+            option.value = item.name;
+            option.textContent = item.name;
+
+            subcategorySelect.appendChild(option);
+        });
+
+        subcategorySelect.disabled = !category || matches.length === 0;
+    }
+
+    categorySelect.addEventListener("change", updateSubcategories);
+
+    updateSubcategories();
     </script>
 
 </body>

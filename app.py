@@ -6587,7 +6587,7 @@ def add_subcategory():
         conn.execute(
             "INSERT INTO product_subcategories (category, category_id, name, created_at) VALUES (?, ?, ?, ?)",
             (
-                category[0],
+                row[0],
                 category_id,
                 name,
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S")
