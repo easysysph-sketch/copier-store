@@ -176,6 +176,17 @@
                     <span class="status">{{ order.status }}</span>
                 </p>
 
+                {% if order.delivery_provider %}
+                <div id="trackDeliveryBox" style="margin-top:18px;padding:14px;border:1px solid #dbeafe;border-radius:12px;background:#f8fbff;">
+                    <strong>🚚 Delivery</strong>
+                    <div style="margin-top:7px;font-size:13px;"><strong>Method:</strong> {{ order.delivery_provider }}</div>
+                    <div style="margin-top:5px;font-size:13px;"><strong>Courier status:</strong> <span id="trackDeliveryStatus">{{ order.delivery_status or 'Not Booked' }}</span></div>
+                    <div id="trackCourierName" style="margin-top:5px;font-size:13px;{% if not order.manual_courier_name %}display:none;{% endif %}"><strong>Courier:</strong> {{ order.manual_courier_name or '' }}</div>
+                    <div id="trackTracking" style="margin-top:5px;font-size:13px;{% if not order.manual_tracking_number %}display:none;{% endif %}"><strong>Tracking:</strong> {{ order.manual_tracking_number or '' }}</div>
+                    <a id="trackTrackingLink" href="{{ order.manual_tracking_url or '#' }}" target="_blank" rel="noopener" style="{% if not order.manual_tracking_url %}display:none;{% endif %}display:inline-block;margin-top:7px;color:#2563eb;font-size:12px;font-weight:800;">🔗 Track shipment</a>
+                </div>
+                {% endif %}
+
                 {% set status = (order.status or 'Pending')|lower %}
                 {% set step = 1 if status in ['pending','confirmed','order confirmed'] else 2 if status in ['processing','preparing order','preparing'] else 3 if status in ['out for delivery','out_for_delivery','shipped'] else 4 if status in ['delivered','completed'] else 1 %}
                 <div class="tracking-timeline" aria-label="Order progress">
@@ -194,6 +205,24 @@
         </a>
 
     </div>
+
+{% if order %}
+<script>
+async function refreshTrackDelivery(){
+  try{
+    const r=await fetch('/api/customer-order/{{ order.id }}/delivery-status',{headers:{'Accept':'application/json'}});
+    if(!r.ok)return;
+    const d=await r.json();
+    const s=document.getElementById('trackDeliveryStatus'); if(s)s.textContent=d.delivery_status||'Not Booked';
+    const c=document.getElementById('trackCourierName'); if(c){c.textContent=d.manual_courier_name ? 'Courier: '+d.manual_courier_name : ''; c.style.display=d.manual_courier_name?'':'none';}
+    const n=document.getElementById('trackTracking'); if(n){n.textContent=d.manual_tracking_number ? 'Tracking: '+d.manual_tracking_number : ''; n.style.display=d.manual_tracking_number?'':'none';}
+    const l=document.getElementById('trackTrackingLink'); if(l){l.href=d.manual_tracking_url||'#';l.style.display=d.manual_tracking_url?'inline-block':'none';}
+  }catch(e){console.debug('delivery refresh failed',e)}
+}
+refreshTrackDelivery();
+setInterval(refreshTrackDelivery,15000);
+</script>
+{% endif %}
 
 </body>
 

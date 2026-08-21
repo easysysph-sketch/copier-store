@@ -332,13 +332,24 @@
                         Category
                     </label>
 
-                    <select name="category" required>
+                    <select name="category" id="categorySelect" required onchange="updateSubcategories()">
                         <option value="">Select category</option>
                         {% for category in categories %}
-                        <option value="{{ category.name }}">{{ category.icon or '📦' }} {{ category.name }}</option>
+                        <option value="{{ category.name }}" data-category-id="{{ category.id }}">{{ category.icon or '📦' }} {{ category.name }}</option>
                         {% endfor %}
                     </select>
 
+                </div>
+
+                <div class="field">
+                    <label>Subcategory</label>
+                    <select name="subcategory" id="subcategorySelect">
+                        <option value="">No subcategory</option>
+                        {% for sub in subcategories %}
+                        <option value="{{ sub.name }}" data-category-id="{{ sub.category_id }}">🏷️ {{ sub.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <small style="color:#64748b;">Choose a subcategory after selecting its parent category.</small>
                 </div>
 
 
@@ -526,6 +537,20 @@
 
         calculatePrice();
 
+        function updateSubcategories() {
+            const category = document.getElementById("categorySelect");
+            const sub = document.getElementById("subcategorySelect");
+            if (!category || !sub) return;
+            const selected = category.options[category.selectedIndex];
+            const categoryId = selected ? selected.dataset.categoryId : "";
+            Array.from(sub.options).forEach((option, index) => {
+                if (index === 0) { option.hidden = false; return; }
+                const show = option.dataset.categoryId === categoryId;
+                option.hidden = !show;
+                if (!show && option.selected) sub.value = "";
+            });
+        }
+        updateSubcategories();
     </script>
 
 </body>

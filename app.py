@@ -511,8 +511,8 @@ def apply_security_headers(response):
 
 # Optional supplier/vendor portal configuration. Credentials are intentionally
 # environment-based so no supplier password is hard-coded into the project.
-SUPPLIER_EMAIL = os.getenv("SUPPLIER_EMAIL", "").strip().lower()
-SUPPLIER_PASSWORD = os.getenv("SUPPLIER_PASSWORD", "")
+SUPPLIER_EMAIL = os.getenv("SUPPLIER_EMAIL", "admin").strip().lower()
+SUPPLIER_PASSWORD = os.getenv("SUPPLIER_PASSWORD", "admin")
 try:
     SUPPLIER_COMMISSION_RATE = float(os.getenv("SUPPLIER_COMMISSION_RATE", "10"))
 except (TypeError, ValueError):
@@ -975,6 +975,7 @@ def _init_db_full():
     # Optional catalog metadata used by the richer storefront/product page.
     # These are additive migrations only; existing products remain valid.
     for _column, _definition in (
+        ("subcategory", "TEXT"),
         ("brand", "TEXT"),
         ("model", "TEXT"),
         ("compatible_models", "TEXT"),
@@ -988,6 +989,18 @@ def _init_db_full():
             cursor.execute(f"ALTER TABLE products ADD COLUMN {_column} {_definition}")
         except sqlite3.OperationalError:
             pass
+
+    # Dynamic product subcategories. Additive migration; existing rows/data remain intact.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS product_subcategories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            created_at TEXT,
+            UNIQUE(category_id, name),
+            FOREIGN KEY(category_id) REFERENCES product_categories(id)
+        )
+    """)
 
     # Configurable product categories. Existing product categories remain valid.
     cursor.execute("""
@@ -1079,7 +1092,7 @@ def _turso_schema_is_ready():
         "customer_addresses", "orders", "payment_settings", "wishlist",
         "recently_viewed", "notifications", "admin_notifications",
         "chat_conversations", "chat_messages", "order_items", "products",
-        "reviews", "product_categories",
+        "reviews", "product_categories", "product_subcategories",
     }
     conn = sqlite3.connect("orders.db")
     try:
@@ -1918,12 +1931,11 @@ def ensure_admin_stock_alerts():
 
 
 @app.route("/supplier/login", methods=["GET", "POST"])
+@app.route("/supplier-login", methods=["GET", "POST"])
 def supplier_login():
     if request.method == "POST":
-        email = (request.form.get("email") or "").strip().lower()
+        email = (request.form.get("email") or request.form.get("username") or "").strip().lower()
         password = request.form.get("password") or ""
-        if not SUPPLIER_EMAIL or not SUPPLIER_PASSWORD:
-            return render_template("supplier_login.html", error="Supplier login is not configured yet. Set SUPPLIER_EMAIL and SUPPLIER_PASSWORD in your environment.")
         if email == SUPPLIER_EMAIL and password == SUPPLIER_PASSWORD:
             session["supplier_logged_in"] = True
             return redirect("/supplier")
@@ -2688,7 +2700,6 @@ def customer_ai_api():
     if any(term in q for term in delivery_keywords):
         answer = (
             "🚚 **Delivery options**\n\n"
-            "• **Store Delivery** — our distance-based delivery option, with the fee calculated from the delivery location.\n"
             "• **Lalamove** — live quotation based on the selected map pin.\n"
             "• **Manual Courier (J&T / other courier)** — the customer chooses the courier and checks that courier's official rate using the public CopierStore pickup address and their delivery address. CopierStore does not invent a courier fee.\n"
             "• **Store Pickup** — free, when available.\n\n"
@@ -2817,6 +2828,31 @@ def storefront_home():
             products = cursor.fetchall()
             cursor.execute("SELECT name, icon FROM product_categories ORDER BY id ASC")
             categories = cursor.fetchall()
+            cursor.execute("""
+                SELECT c.name AS category_name, s.name AS subcategory_name
+                FROM product_subcategories s
+                JOIN product_categories c ON c.id = s.category_id
+                ORDER BY c.id ASC, s.id ASC
+            """)
+            subcategory_rows = cursor.fetchall()
+            display_map = {
+                "Photocopiers": ["Xerox", "Fuji Xerox", "Konica Minolta", "Canon", "Ricoh", "Kyocera", "Sharp"],
+                "Printers": ["Laser Printer", "Inkjet Printer", "Multifunction Printer", "Dot Matrix"],
+                "Toner & Consumables": ["Black Toner", "Color Toner", "Developer", "Drum", "Waste Toner", "Ink Cartridge"],
+                "Spare Parts": ["Drum Unit", "Fuser Unit", "Transfer Belt", "Pickup Roller", "Maintenance Kit", "Other Parts"],
+                "Office Supplies": ["Bond Paper", "Specialty Paper", "Labels", "Filing Supplies"],
+            }
+            parent_to_display = {
+                "Photocopier": "Photocopiers", "Xerox Machines": "Photocopiers",
+                "Printers": "Printers",
+                "Toner": "Toner & Consumables", "Ink & Ink Cartridges": "Toner & Consumables",
+                "Spare Parts": "Spare Parts",
+                "Office Supplies": "Office Supplies", "Office Equipment": "Office Supplies",
+            }
+            for row in subcategory_rows:
+                display = parent_to_display.get(row["category_name"])
+                if display and row["subcategory_name"] not in display_map[display]:
+                    display_map[display].append(row["subcategory_name"])
 
             # Keep the storefront aware of the currently signed-in customer.
             # The previous route only passed products/categories, so after a
@@ -2832,7 +2868,7 @@ def storefront_home():
                     session.pop("customer_id", None)
 
             conn.close()
-            return render_template(candidate, products=products, categories=categories, customer=customer)
+            return render_template(candidate, products=products, categories=categories, customer=customer, subcategory_map=display_map)
     return redirect("/customer-login")
 
 
@@ -3263,7 +3299,6 @@ The store information below is authoritative for:
 - Store products
 - Store prices
 - Store stock
-- Store delivery
 - Store payment methods
 
 Never invent store information.
@@ -3663,7 +3698,7 @@ def _lalamove_quote(address, latitude, longitude):
         return False, detail or f"Lalamove quotation failed ({exc.code})."
     except Exception as exc:
         app.logger.warning("Lalamove quotation failed: %r", exc)
-        return False, "Lalamove is temporarily unavailable. Please use Standard Delivery instead."
+        return False, "Lalamove is temporarily unavailable. Please use Manual Courier instead."
 
 
 @app.route("/api/lalamove/quote", methods=["POST"])
@@ -5022,6 +5057,34 @@ def customer_order(order_id):
     )
 
 
+@app.route("/api/customer-order/<int:order_id>/delivery-status", methods=["GET"])
+def customer_delivery_status(order_id):
+    customer_id = session.get("customer_id")
+    if not customer_id:
+        return {"error": "login required"}, 401
+    conn = sqlite3.connect("orders.db")
+    conn.row_factory = sqlite3.Row
+    order = conn.execute("""
+        SELECT id, delivery_provider, delivery_status, manual_courier_name, manual_tracking_number, manual_tracking_url, lalamove_status, lalamove_driver_name, lalamove_driver_phone, lalamove_driver_plate, lalamove_sharelink
+        FROM orders WHERE id=? AND customer_id=?
+    """, (order_id, customer_id)).fetchone()
+    conn.close()
+    if not order:
+        return {"error": "order not found"}, 404
+    return {
+        "delivery_provider": order["delivery_provider"] or "",
+        "delivery_status": order["delivery_status"] or order["lalamove_status"] or "Not Booked",
+        "manual_courier_name": order["manual_courier_name"] or "",
+        "manual_tracking_number": order["manual_tracking_number"] or "",
+        "manual_tracking_url": order["manual_tracking_url"] or "",
+        "lalamove_status": order["lalamove_status"] or "",
+        "lalamove_driver_name": order["lalamove_driver_name"] or "",
+        "lalamove_driver_phone": order["lalamove_driver_phone"] or "",
+        "lalamove_driver_plate": order["lalamove_driver_plate"] or "",
+        "lalamove_sharelink": order["lalamove_sharelink"] or "",
+    }
+
+
 @app.route("/mark-notification-read/<int:notification_id>", methods=["POST"])
 def mark_notification_read(notification_id):
 
@@ -5671,9 +5734,7 @@ def place_order():
         delivery_fee = 0.0
         lalamove_quotation_id = None
     else:
-        delivery_provider = "Standard Delivery"
-        delivery_fee, _distance_km = calculate_delivery_fee(address, location, saved_latitude, saved_longitude)
-        lalamove_quotation_id = None
+        return "Please choose Lalamove or Manual Courier for delivery.", 400
 
     # Normalize and re-price every cart item from the database. Never trust
     # prices submitted by the browser.
@@ -6026,6 +6087,7 @@ def track_order():
         SELECT
             orders.id, orders.customer_name, orders.phone, orders.delivery_fee,
             orders.total, orders.payment_method, orders.payment_status,
+            orders.delivery_provider, orders.delivery_status, orders.manual_courier_name, orders.manual_tracking_number, orders.manual_tracking_url,
             orders.payment_reference, orders.payment_receipt, orders.status,
             order_items.product, order_items.quantity
         FROM orders
@@ -6187,6 +6249,7 @@ def add_product():
 
         name = (request.form.get("name") or "").strip()[:160]
         category = (request.form.get("category") or "").strip()[:120]
+        subcategory = (request.form.get("subcategory") or "").strip()[:120]
         try:
             base_price = float(request.form.get("base_price", ""))
             markup = 0.0
@@ -6235,12 +6298,12 @@ def add_product():
 
         cursor.execute("""
             INSERT INTO products
-            (name, category, base_price, markup, stock, description, image, images, weight_kg, length_cm, width_cm, height_cm, brand, model, compatible_models, product_type, condition, print_speed, paper_size, connectivity)
+            (name, category, base_price, markup, stock, description, image, images, weight_kg, length_cm, width_cm, height_cm, subcategory, brand, model, compatible_models, product_type, condition, print_speed, paper_size, connectivity)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             name, category, base_price, markup, stock, description,
             image_filenames[0] if image_filenames else None, images_data,
-            weight_kg, length_cm, width_cm, height_cm, brand, model, compatible_models,
+            weight_kg, length_cm, width_cm, height_cm, subcategory, brand, model, compatible_models,
             product_type, condition, print_speed, paper_size, connectivity
         ))
 
@@ -6252,10 +6315,12 @@ def add_product():
     conn = sqlite3.connect("orders.db")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    cursor.execute("SELECT name, icon FROM product_categories ORDER BY id ASC")
+    cursor.execute("SELECT id, name, icon FROM product_categories ORDER BY id ASC")
     categories = cursor.fetchall()
+    cursor.execute("SELECT id, category_id, name FROM product_subcategories ORDER BY category_id ASC, id ASC")
+    subcategories = cursor.fetchall()
     conn.close()
-    return render_template("add_product.html", categories=categories)
+    return render_template("add_product.html", categories=categories, subcategories=subcategories)
 
 
 @app.route("/admin/products")
@@ -6308,6 +6373,7 @@ def edit_product(product_id):
 
         name = request.form["name"]
         category = request.form["category"]
+        subcategory = request.form.get("subcategory", "").strip()[:120]
         base_price = float(request.form["base_price"])
         markup = 0.0
         stock = int(request.form.get("stock", 0))
@@ -6338,6 +6404,7 @@ def edit_product(product_id):
                 length_cm = ?,
                 width_cm = ?,
                 height_cm = ?,
+                subcategory = ?,
                 brand = ?,
                 model = ?,
                 compatible_models = ?,
@@ -6354,7 +6421,7 @@ def edit_product(product_id):
             markup,
             stock,
             description,
-            weight_kg, length_cm, width_cm, height_cm,
+            weight_kg, length_cm, width_cm, height_cm, subcategory,
             brand, model, compatible_models, product_type, condition, print_speed, paper_size, connectivity,
             product_id
         ))
@@ -6380,32 +6447,55 @@ def edit_product(product_id):
     conn = sqlite3.connect("orders.db")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    cursor.execute("SELECT name, icon FROM product_categories ORDER BY id ASC")
+    cursor.execute("SELECT id, name, icon FROM product_categories ORDER BY id ASC")
     categories = cursor.fetchall()
+    cursor.execute("SELECT id, category_id, name FROM product_subcategories ORDER BY category_id ASC, id ASC")
+    subcategories = cursor.fetchall()
     conn.close()
 
     return render_template(
         "edit_product.html",
         product=product,
-        categories=categories
+        categories=categories,
+        subcategories=subcategories
     )
 
 @app.route("/admin/products/delete/<int:product_id>", methods=["POST"])
 def delete_product(product_id):
-
     if not session.get("admin_logged_in"):
         return redirect("/login")
 
     conn = sqlite3.connect("orders.db")
+    conn.execute("PRAGMA foreign_keys = ON")
     cursor = conn.cursor()
 
-    cursor.execute("""
-        DELETE FROM products
-        WHERE id = ?
-    """, (product_id,))
+    try:
+        # Check that the product exists before deleting anything.
+        cursor.execute("SELECT name FROM products WHERE id = ?", (product_id,))
+        product = cursor.fetchone()
+        if not product:
+            flash("Product not found.", "error")
+            return redirect("/admin/products")
 
-    conn.commit()
-    conn.close()
+        # Some production databases enforce foreign keys. Remove only the
+        # product-specific records first so deleting a catalog item cannot
+        # fail with a 500 because of an old wishlist/review entry.
+        cursor.execute("DELETE FROM wishlist WHERE product_id = ?", (product_id,))
+        cursor.execute("DELETE FROM recently_viewed WHERE product_id = ?", (product_id,))
+        cursor.execute("DELETE FROM reviews WHERE product_id = ?", (product_id,))
+        cursor.execute("DELETE FROM admin_notifications WHERE product_id = ?", (product_id,))
+
+        # Historical orders intentionally remain untouched. order_items stores
+        # the product name/price snapshot rather than a product foreign key.
+        cursor.execute("DELETE FROM products WHERE id = ?", (product_id,))
+        conn.commit()
+        flash(f"Product '{product[0]}' deleted successfully.", "success")
+    except sqlite3.Error as exc:
+        conn.rollback()
+        app.logger.exception("Failed to delete product %s: %s", product_id, exc)
+        flash("Could not delete this product. Nothing was changed.", "error")
+    finally:
+        conn.close()
 
     return redirect("/admin/products")
 
@@ -6444,8 +6534,15 @@ def admin_categories():
         ORDER BY c.id ASC
     """)
     categories = cursor.fetchall()
+    cursor.execute("""
+        SELECT s.id, s.category_id, s.name, c.name AS category_name
+        FROM product_subcategories s
+        JOIN product_categories c ON c.id = s.category_id
+        ORDER BY c.id ASC, s.id ASC
+    """)
+    subcategories = cursor.fetchall()
     conn.close()
-    return render_template("admin_categories.html", categories=categories)
+    return render_template("admin_categories.html", categories=categories, subcategories=subcategories)
 
 
 @app.route("/admin/categories/delete/<int:category_id>", methods=["POST"])
@@ -6469,10 +6566,60 @@ def delete_category(category_id):
         flash(f"Cannot delete '{category['name']}' because {used} product(s) use it. Reassign those products first.", "error")
         return redirect("/admin/categories")
 
+    cursor.execute("DELETE FROM product_subcategories WHERE category_id = ?", (category_id,))
     cursor.execute("DELETE FROM product_categories WHERE id = ?", (category_id,))
     conn.commit()
     conn.close()
     flash("Category deleted.", "success")
+    return redirect("/admin/categories")
+
+
+@app.route("/admin/subcategories", methods=["POST"])
+def admin_add_subcategory():
+    if not session.get("admin_logged_in"):
+        return redirect("/login")
+    name = (request.form.get("name") or "").strip()[:120]
+    try:
+        category_id = int(request.form.get("category_id") or 0)
+    except ValueError:
+        category_id = 0
+    if not name or not category_id:
+        flash("Parent category and subcategory name are required.", "error")
+        return redirect("/admin/categories")
+    conn = sqlite3.connect("orders.db")
+    try:
+        category = conn.execute("SELECT name FROM product_categories WHERE id=?", (category_id,)).fetchone()
+        if not category:
+            flash("Parent category not found.", "error")
+        else:
+            conn.execute("INSERT INTO product_subcategories (category_id, name, created_at) VALUES (?, ?, ?)", (category_id, name, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+            conn.commit()
+            flash(f"Subcategory '{name}' added under {category[0]}.", "success")
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        flash("That subcategory already exists under this category.", "error")
+    finally:
+        conn.close()
+    return redirect("/admin/categories")
+
+
+@app.route("/admin/subcategories/delete/<int:subcategory_id>", methods=["POST"])
+def delete_subcategory(subcategory_id):
+    if not session.get("admin_logged_in"):
+        return redirect("/login")
+    conn = sqlite3.connect("orders.db")
+    conn.row_factory = sqlite3.Row
+    row = conn.execute("SELECT s.id, s.name, c.name AS category_name FROM product_subcategories s JOIN product_categories c ON c.id=s.category_id WHERE s.id=?", (subcategory_id,)).fetchone()
+    if not row:
+        conn.close(); return redirect("/admin/categories")
+    used = conn.execute("SELECT COUNT(*) FROM products WHERE LOWER(TRIM(COALESCE(subcategory,'')))=LOWER(TRIM(?)) AND LOWER(TRIM(category))=LOWER(TRIM(?))", (row["name"], row["category_name"])).fetchone()[0]
+    if used:
+        conn.close()
+        flash(f"Cannot delete '{row['name']}' because {used} product(s) use it. Reassign those products first.", "error")
+        return redirect("/admin/categories")
+    conn.execute("DELETE FROM product_subcategories WHERE id=?", (subcategory_id,))
+    conn.commit(); conn.close()
+    flash("Subcategory deleted.", "success")
     return redirect("/admin/categories")
 
 

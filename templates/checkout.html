@@ -823,7 +823,7 @@
                         <input type="hidden" name="selected_address" id="selectedAddressId" required>
                         <input type="hidden" name="latitude" id="checkoutLatitude">
                         <input type="hidden" name="longitude" id="checkoutLongitude">
-                        <input type="hidden" name="delivery_provider" id="deliveryProvider" value="Standard Delivery">
+                        <input type="hidden" name="delivery_provider" id="deliveryProvider" value="Lalamove">
 
 
                         {% else %}
@@ -924,14 +924,7 @@
                             <label>Delivery Method <span class="required">*</span></label>
                             <div class="delivery-methods">
                                 <label class="delivery-method">
-                                    <input type="radio" name="delivery_method_ui" value="Store Delivery" checked onchange="setDeliveryProvider('Store Delivery')">
-                                    <div class="delivery-method-copy">
-                                        <strong>🚚 Store Delivery</strong>
-                                        <small>Distance-based store delivery</small>
-                                    </div>
-                                </label>
-                                <label class="delivery-method">
-                                    <input type="radio" name="delivery_method_ui" value="Lalamove" onchange="setDeliveryProvider('Lalamove')">
+                                    <input type="radio" name="delivery_method_ui" value="Lalamove" checked onchange="setDeliveryProvider('Lalamove')">
                                     <div class="delivery-method-copy">
                                         <strong>🛵 Lalamove</strong>
                                         <small>Live quotation using your exact map pin</small>
@@ -1583,7 +1576,7 @@
             }
 
             updatePaymentInfo();
-            const currentProvider = document.getElementById("deliveryProvider")?.value || "Store Delivery";
+            const currentProvider = document.getElementById("deliveryProvider")?.value || "Lalamove";
             setDeliveryProvider(currentProvider);
         });
 

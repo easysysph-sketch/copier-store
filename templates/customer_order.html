@@ -552,9 +552,10 @@
             <div style="margin-top:12px;padding:14px;border-radius:12px;background:#f8fafc;border:1px solid #e2e8f0;">
                 <strong>📦 Manual Courier</strong>
                 <div style="margin-top:5px;color:#64748b;font-size:11px;">Courier and tracking are handled manually by CopierStore.</div>
-                {% if order.manual_courier_name %}<div style="margin-top:8px;font-size:12px;"><strong>Courier:</strong> {{ order.manual_courier_name }}</div>{% endif %}
-                {% if order.manual_tracking_number %}<div style="margin-top:5px;font-size:12px;"><strong>Tracking:</strong> {{ order.manual_tracking_number }}</div>{% endif %}
-                {% if order.manual_tracking_url %}<a href="{{ order.manual_tracking_url }}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;color:#2563eb;font-size:11px;font-weight:800;">🔗 Track shipment</a>{% endif %}
+                <div style="margin-top:9px;font-size:12px;"><strong>Courier status:</strong> <span id="manualCourierStatus">{{ order.delivery_status or 'Awaiting Manual Courier Assignment' }}</span></div>
+                <div id="manualCourierNameRow" style="margin-top:8px;font-size:12px;{% if not order.manual_courier_name %}display:none;{% endif %}"><strong>Courier:</strong> <span id="manualCourierName">{{ order.manual_courier_name or '' }}</span></div>
+                <div id="manualTrackingRow" style="margin-top:5px;font-size:12px;{% if not order.manual_tracking_number %}display:none;{% endif %}"><strong>Tracking:</strong> <span id="manualTrackingNumber">{{ order.manual_tracking_number or '' }}</span></div>
+                <a id="manualTrackingLink" href="{{ order.manual_tracking_url or '#' }}" target="_blank" rel="noopener" style="{% if not order.manual_tracking_url %}display:none;{% endif %}display:inline-block;margin-top:8px;color:#2563eb;font-size:11px;font-weight:800;">🔗 Track shipment</a>
                 <div style="margin-top:10px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:11px;">
                     <strong>Estimated courier fee:</strong> ₱{{ "{:,.2f}".format(order.delivery_fee or 0) }}
                     {% if order.actual_courier_fee is not none %}
@@ -931,6 +932,27 @@ async function refreshLalamoveCustomer(){
 }
 refreshLalamoveCustomer();
 setInterval(refreshLalamoveCustomer,30000);
+{% if order.delivery_provider == 'Manual Courier' %}
+async function refreshManualCourierStatus(){
+    try {
+        const r = await fetch('/api/customer-order/{{ order.id }}/delivery-status', {headers:{'Accept':'application/json'}});
+        if(!r.ok) return;
+        const d = await r.json();
+        const status=document.getElementById('manualCourierStatus');
+        if(status) status.textContent=d.delivery_status || 'Awaiting Manual Courier Assignment';
+        const courier=document.getElementById('manualCourierName');
+        const courierRow=document.getElementById('manualCourierNameRow');
+        if(courier){ courier.textContent=d.manual_courier_name || ''; if(courierRow) courierRow.style.display=d.manual_courier_name ? '' : 'none'; }
+        const tracking=document.getElementById('manualTrackingNumber');
+        const trackingRow=document.getElementById('manualTrackingRow');
+        if(tracking){ tracking.textContent=d.manual_tracking_number || ''; if(trackingRow) trackingRow.style.display=d.manual_tracking_number ? '' : 'none'; }
+        const link=document.getElementById('manualTrackingLink');
+        if(link){ link.href=d.manual_tracking_url || '#'; link.style.display=d.manual_tracking_url ? 'inline-block' : 'none'; }
+    } catch(e) { console.debug('Manual courier status refresh failed',e); }
+}
+refreshManualCourierStatus();
+setInterval(refreshManualCourierStatus, 15000);
+{% endif %}
 </script>
 {% endif %}
 
