@@ -1,0 +1,55 @@
+name: Finalize chat Turso fix
+
+on:
+  push:
+    paths:
+      - .github/workflows/fix-chat-finalize.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch chat transaction handling
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app.py')
+          s = p.read_text(encoding='utf-8')
+
+          old = '''        try:\n            cur.execute("UPDATE chat_messages SET is_read=1 WHERE conversation_id=? AND sender_type=? AND is_read=0",(conv_id,recipient))\n            conn.commit()\n        except Exception as read_exc:\n            # Read receipts are secondary. Never make message polling fail because\n            # a Turso stream expired while marking messages as read.\n            if "stream not found" not in str(read_exc).lower():\n                raise\n            try:\n                conn.close()\n            except Exception:\n                pass\n            conn=sqlite3.connect(DATABASE_PATH); conn.row_factory=sqlite3.Row; cur=conn.cursor()\n'''
+          new = '''        try:\n            cur.execute("UPDATE chat_messages SET is_read=1 WHERE conversation_id=? AND sender_type=? AND is_read=0",(conv_id,recipient))\n            # Only commit when the UPDATE actually changed rows. Chat polling can\n            # run repeatedly, so committing an empty read-receipt transaction on\n            # every poll unnecessarily creates/uses a Turso write stream.\n            if getattr(cur, "rowcount", 0) and cur.rowcount > 0:\n                try:\n                    conn.commit()\n                except Exception as read_commit_exc:\n                    if "stream not found" not in str(read_commit_exc).lower():\n                        raise\n                    # The read receipt is non-critical; the next poll can retry it.\n        except Exception as read_exc:\n            # Read receipts are secondary. Never make message polling fail because\n            # a Turso stream expired while marking messages as read.\n            if "stream not found" not in str(read_exc).lower():\n                raise\n'''
+          if old not in s:
+              raise SystemExit('messages polling block not found')
+          s = s.replace(old, new, 1)
+
+          old = '''        except sqlite3.Error:\n            # Message delivery already succeeded; timestamp refresh is best-effort.\n            pass\n\n        # Notifications are secondary. A notification schema/plugin mismatch must\n'''
+          new = '''        except Exception as timestamp_exc:\n            # Message delivery already succeeded; timestamp refresh is best-effort.\n            # Turso stream expiry can surface as ValueError, not sqlite3.Error.\n            if "stream not found" not in str(timestamp_exc).lower():\n                raise\n\n        # Notifications are secondary. A notification schema/plugin mismatch must\n'''
+          if old not in s:
+              raise SystemExit('timestamp block not found')
+          s = s.replace(old, new, 1)
+
+          old = '''        except sqlite3.Error:\n            # Keep the chat message; notification can be repaired independently.\n            pass\n\n        conn.commit()\n        return jsonify({"success": True, "conversation_id": conv_id, "message_id": msg_id})\n'''
+          new = '''        except Exception:\n            # Keep the chat message; notification can be repaired independently.\n            # Do not retry/commit here: the actual chat message was already\n            # committed above, and this request must not depend on a second Turso\n            # write stream.\n            pass\n\n        # IMPORTANT: do not commit again here. The message transaction was already\n        # committed before notifications/timestamp bookkeeping. A second commit\n        # is exactly what was producing Hrana `stream not found` errors after the\n        # user had successfully sent a message.\n        return jsonify({"success": True, "conversation_id": conv_id, "message_id": msg_id})\n'''
+          if old not in s:
+              raise SystemExit('notification final commit block not found')
+          s = s.replace(old, new, 1)
+
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Validate Python
+        run: python -m py_compile app.py
+
+      - name: Commit and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.py
+          git rm .github/workflows/fix-chat-finalize.yml
+          git commit -m "Fix chat send Turso commit and polling behavior"
+          git push origin HEAD:main
