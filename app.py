@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session, redirect, flash, jsonify
+from flask import Flask, render_template, request, session, redirect, flash, jsonify, g, has_app_context
 import sqlite3 as _sqlite3
 
 # --- Turso / SQLite compatibility layer ---
@@ -11,6 +11,46 @@ try:
     import libsql as _turso_libsql
 except ImportError:
     _turso_libsql = None
+
+
+# Track only connections created inside the current Flask application context.
+# Each request gets its own `g`, so one request can never close another
+# request's Turso/libSQL connection. Connections created during startup
+# (before a Flask context exists) continue to be managed by the existing
+# explicit close() calls.
+def _register_turso_connection(connection):
+    if not has_app_context():
+        return
+    connections = g.setdefault("_turso_connections", [])
+    connections.append(connection)
+
+
+def _unregister_turso_connection(connection):
+    if not has_app_context():
+        return
+    connections = g.get("_turso_connections")
+    if not connections:
+        return
+    try:
+        connections.remove(connection)
+    except ValueError:
+        pass
+
+
+def _close_turso_connections():
+    if not has_app_context():
+        return
+    connections = list(g.get("_turso_connections", ()))
+    # Clear the request-local collection first so close() cannot mutate the
+    # list while it is being iterated. close() itself is idempotent below.
+    g["_turso_connections"] = []
+    for connection in connections:
+        try:
+            connection.close()
+        except Exception:
+            # Request cleanup must never replace the original Flask response
+            # with a connection-close exception.
+            pass
 
 
 class _CompatRow:
@@ -102,6 +142,8 @@ class _CompatConnection:
     def __init__(self, raw):
         self.raw = raw
         self._row_factory = None
+        self._closed = False
+        _register_turso_connection(self)
 
     @property
     def row_factory(self):
@@ -136,10 +178,27 @@ class _CompatConnection:
         return self.raw.commit()
 
     def rollback(self):
-        return self.raw.rollback()
+        try:
+            return self.raw.rollback()
+        except Exception as exc:
+            # If the remote Hrana stream has already expired, rollback cannot
+            # reach that detached transaction.  Do not mask the original
+            # application/database exception with a second rollback error.
+            message = str(exc).lower()
+            if "stream not found" in message or (
+                "hrana" in message and "status=404" in message and "not found" in message
+            ):
+                return None
+            raise
 
     def close(self):
-        return self.raw.close()
+        if self._closed:
+            return None
+        try:
+            return self.raw.close()
+        finally:
+            self._closed = True
+            _unregister_turso_connection(self)
 
     def __getattr__(self, name):
         return getattr(self.raw, name)
@@ -223,6 +282,19 @@ app = Flask(__name__)
 # (Render, Railway, Fly, nginx, etc.) so HTTPS/session/origin handling works
 # correctly behind a proxy. Do not expose the app directly to untrusted proxy hops.
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+
+@app.teardown_appcontext
+def _close_turso_connections_at_request_end(_error=None):
+    """Release remote Turso/libSQL streams after every Flask request.
+
+    The app opens database connections directly in many routes rather than
+    storing one connection on Flask's ``g`` object.  Closing the tracked remote
+    connections here prevents short-lived requests (especially chat polling)
+    from leaving Hrana streams open until the server expires them.
+    """
+    _close_turso_connections()
+
 
 # Security-sensitive configuration stays outside the source code.
 _ENVIRONMENT = os.environ.get("FLASK_ENV", "").strip().lower()
