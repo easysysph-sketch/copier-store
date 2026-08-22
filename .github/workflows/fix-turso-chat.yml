@@ -1,0 +1,32 @@
+name: Fix Turso chat connection recovery
+
+on:
+  push:
+    paths:
+      - .fix_turso_chat.py
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply Turso recovery fix
+        run: python .fix_turso_chat.py
+
+      - name: Validate Python
+        run: python -m py_compile app.py
+
+      - name: Commit fixed app
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.py
+          git rm .fix_turso_chat.py .github/workflows/fix-turso-chat.yml
+          git commit -m "Fix Turso chat send stream recovery"
+          git push origin HEAD:main
