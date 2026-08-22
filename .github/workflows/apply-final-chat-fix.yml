@@ -1,0 +1,37 @@
+name: Apply final chat architecture fix
+
+on:
+  push:
+    paths:
+      - .final_chat_fix.py
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply final chat patch
+        run: python .final_chat_fix.py
+      - name: Validate Python
+        run: python -m py_compile app.py
+      - name: Validate templates
+        run: python - <<'PY'
+          from pathlib import Path
+          for p in [Path('templates/admin_messages.html'), Path('templates/live_chat.html')]:
+              s=p.read_text(encoding='utf-8')
+              assert '/api/chat/messages' in s
+              assert '/api/chat/send' in s
+          print('chat templates validated')
+          PY
+      - name: Commit final patch and remove helpers
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.py templates/admin_messages.html templates/live_chat.html Procfile
+          git rm .final_chat_fix.py .github/workflows/apply-final-chat-fix.yml
+          git commit -m "Finalize fast reliable live chat"
+          git push origin HEAD:main
