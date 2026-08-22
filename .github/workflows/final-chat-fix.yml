@@ -1,6 +1,8 @@
 name: Final live chat performance fix
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -8,6 +10,7 @@ permissions:
 
 jobs:
   fix:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,7 +24,6 @@ jobs:
           app = Path('app.py')
           text = app.read_text(encoding='utf-8')
 
-          # Chat polling must not run schema/migration work on every request.
           for marker in [
               'def chat_conversations_api():\n    if _api_rate_limited("chat"):\n        return jsonify({"success": False, "error": "Too many chat requests. Please wait a moment."}), 429\n    ensure_live_chat_tables()\n',
               'def chat_messages_api():\n    if _api_rate_limited("chat"):\n        return jsonify({"success": False, "error": "Too many chat requests. Please wait a moment."}), 429\n    ensure_live_chat_tables()\n',
@@ -30,16 +32,12 @@ jobs:
               if marker in text:
                   text = text.replace(marker, marker.replace('    ensure_live_chat_tables()\n', ''), 1)
 
-          # Do not perform a write on every message poll. Only mark messages read
-          # when the initial load/new messages actually arrived.
           old_read = '''        recipient='customer' if is_admin else 'admin'\n        try:\n            cur.execute("UPDATE chat_messages SET is_read=1 WHERE conversation_id=? AND sender_type=? AND is_read=0",(conv_id,recipient))\n            # Only commit when the UPDATE actually changed rows. Chat polling can\n            # run repeatedly, so committing an empty read-receipt transaction on\n            # every poll unnecessarily creates/uses a Turso write stream.\n            if getattr(cur, "rowcount", 0) and cur.rowcount > 0:\n                try:\n                    conn.commit()\n                except Exception as read_commit_exc:\n                    if "stream not found" not in str(read_commit_exc).lower():\n                        raise\n                    # The read receipt is non-critical; the next poll can retry it.\n        except Exception as read_exc:\n            # Read receipts are secondary. Never make message polling fail because\n            # a Turso stream expired while marking messages as read.\n            if "stream not found" not in str(read_exc).lower():\n                raise\n        cur.execute("SELECT COUNT(*) FROM chat_messages WHERE sender_type=? AND is_read=0" , ('customer' if is_admin else 'admin',))\n'''
-          new_read = '''        # A normal poll is read-only. Only perform the read-receipt UPDATE when\n        # this request actually loaded messages (initial load or new messages).\n        if after == 0 or messages:\n            recipient='customer' if is_admin else 'admin'\n            try:\n                cur.execute("UPDATE chat_messages SET is_read=1 WHERE conversation_id=? AND sender_type=? AND is_read=0",(conv_id,recipient))\n                if getattr(cur, "rowcount", 0) and cur.rowcount > 0:\n                    try:\n                        conn.commit()\n                    except Exception as read_commit_exc:\n                        if "stream not found" not in str(read_commit_exc).lower():\n                            raise\n            except Exception as read_exc:\n                if "stream not found" not in str(read_exc).lower():\n                    raise\n        # Global unread totals are maintained by the conversation-list endpoint.\n        # Avoid another database query on every 1–2 second message poll.\n        unread_total = 0\n'''
+          new_read = '''        # A normal poll is read-only. Only perform the read-receipt UPDATE when\n        # this request actually loaded messages (initial load or new messages).\n        if after == 0 or messages:\n            recipient='customer' if is_admin else 'admin'\n            try:\n                cur.execute("UPDATE chat_messages SET is_read=1 WHERE conversation_id=? AND sender_type=? AND is_read=0",(conv_id,recipient))\n                if getattr(cur, "rowcount", 0) and cur.rowcount > 0:\n                    try:\n                        conn.commit()\n                    except Exception as read_commit_exc:\n                        if "stream not found" not in str(read_commit_exc).lower():\n                            raise\n            except Exception as read_exc:\n                if "stream not found" not in str(read_exc).lower():\n                    raise\n        # Global unread totals are maintained by the conversation-list endpoint.\n        unread_total = 0\n'''
           if old_read not in text:
               raise SystemExit('Expected chat read-receipt block not found')
           text = text.replace(old_read, new_read, 1)
 
-          # Include customer metadata in the existing conversation lookup so the
-          # message endpoint does not need a second conversation query on every poll.
           old_conv_lookup = 'cur.execute("SELECT * FROM chat_conversations WHERE id=?",(conv_id,)); conv=cur.fetchone()'
           new_conv_lookup = 'cur.execute("SELECT c.*, cu.name customer_name, cu.email customer_email FROM chat_conversations c JOIN customers cu ON cu.id=c.customer_id WHERE c.id=?",(conv_id,)); conv=cur.fetchone()'
           if old_conv_lookup not in text:
@@ -52,17 +50,14 @@ jobs:
               raise SystemExit('Expected final conversation lookup not found')
           text = text.replace(old_final_conv, new_final_conv, 1)
 
-          # Send should use one transaction: message INSERT + conversation timestamp.
           old_send = '''        msg_id = cur.lastrowid\n        # Commit the actual message before the non-essential conversation timestamp\n        # and notification bookkeeping. This guarantees that a stale Turso stream\n        # during secondary bookkeeping can never make the user's message vanish.\n        try:\n            conn.commit()\n        except Exception as exc:\n            # If the first commit lost its Turso stream, reconnect and determine\n            # whether the message actually reached the database. If it did not,\n            # replay the message transaction exactly once.\n            if "stream not found" not in str(exc).lower():\n                raise\n            sender = "admin" if is_admin else "customer"\n            conn.close()\n            conn=sqlite3.connect(DATABASE_PATH); conn.row_factory=sqlite3.Row; cur=conn.cursor()\n            cur.execute("SELECT id,conversation_id FROM chat_messages WHERE conversation_id=? AND customer_id=? AND sender_type=? AND message=? ORDER BY id DESC LIMIT 1",(conv_id,customer_id,sender,message))\n            existing_msg=cur.fetchone()\n            if existing_msg:\n                msg_id=existing_msg['id']\n                conv_id=existing_msg['conversation_id']\n            else:\n                cur.execute("INSERT INTO chat_messages (customer_id,sender_type,message,is_read,conversation_id,order_id) VALUES (?,?,?,?,?,?)",(customer_id,sender,message,0,conv_id,order_id))\n                msg_id=cur.lastrowid\n                conn.commit()\n        try:\n            cur.execute(\n                "UPDATE chat_conversations SET updated_at=CURRENT_TIMESTAMP WHERE id=?",\n                (conv_id,),\n            )\n            conn.commit()\n        except Exception as timestamp_exc:\n            # Message delivery already succeeded; timestamp refresh is best-effort.\n            # Turso stream expiry can surface as ValueError, not sqlite3.Error.\n            if "stream not found" not in str(timestamp_exc).lower():\n                raise\n\n'''
-          new_send = '''        msg_id = cur.lastrowid\n        # Keep the message insert and conversation timestamp in ONE transaction.\n        # This avoids the extra remote Turso commit that previously caused a\n        # successful message to be followed by a false send failure.\n        cur.execute("UPDATE chat_conversations SET updated_at=CURRENT_TIMESTAMP WHERE id=?", (conv_id,))\n        try:\n            conn.commit()\n        except Exception as exc:\n            if "stream not found" not in str(exc).lower():\n                raise\n            sender = "admin" if is_admin else "customer"\n            conn.close()\n            conn=sqlite3.connect(DATABASE_PATH); conn.row_factory=sqlite3.Row; cur=conn.cursor()\n            cur.execute("SELECT id,conversation_id FROM chat_messages WHERE conversation_id=? AND customer_id=? AND sender_type=? AND message=? ORDER BY id DESC LIMIT 1",(conv_id,customer_id,sender,message))\n            existing_msg=cur.fetchone()\n            if existing_msg:\n                msg_id=existing_msg['id']\n                conv_id=existing_msg['conversation_id']\n            else:\n                cur.execute("INSERT INTO chat_messages (customer_id,sender_type,message,is_read,conversation_id,order_id) VALUES (?,?,?,?,?,?)",(customer_id,sender,message,0,conv_id,order_id))\n                msg_id=cur.lastrowid\n                cur.execute("UPDATE chat_conversations SET updated_at=CURRENT_TIMESTAMP WHERE id=?", (conv_id,))\n                conn.commit()\n\n'''
+          new_send = '''        msg_id = cur.lastrowid\n        # Keep the message insert and conversation timestamp in ONE transaction.\n        cur.execute("UPDATE chat_conversations SET updated_at=CURRENT_TIMESTAMP WHERE id=?", (conv_id,))\n        try:\n            conn.commit()\n        except Exception as exc:\n            if "stream not found" not in str(exc).lower():\n                raise\n            sender = "admin" if is_admin else "customer"\n            conn.close()\n            conn=sqlite3.connect(DATABASE_PATH); conn.row_factory=sqlite3.Row; cur=conn.cursor()\n            cur.execute("SELECT id,conversation_id FROM chat_messages WHERE conversation_id=? AND customer_id=? AND sender_type=? AND message=? ORDER BY id DESC LIMIT 1",(conv_id,customer_id,sender,message))\n            existing_msg=cur.fetchone()\n            if existing_msg:\n                msg_id=existing_msg['id']\n                conv_id=existing_msg['conversation_id']\n            else:\n                cur.execute("INSERT INTO chat_messages (customer_id,sender_type,message,is_read,conversation_id,order_id) VALUES (?,?,?,?,?,?)",(customer_id,sender,message,0,conv_id,order_id))\n                msg_id=cur.lastrowid\n                cur.execute("UPDATE chat_conversations SET updated_at=CURRENT_TIMESTAMP WHERE id=?", (conv_id,))\n                conn.commit()\n\n'''
           if old_send not in text:
               raise SystemExit('Expected chat send transaction block not found')
           text = text.replace(old_send, new_send, 1)
 
           app.write_text(text, encoding='utf-8')
 
-          # Frontend polling is deliberately conservative: one in-flight request,
-          # messages every 2.5s, conversation list every 7s, customer list once/minute.
           for filename in ['templates/live_chat.html', 'templates/admin_messages.html']:
               p=Path(filename)
               s=p.read_text(encoding='utf-8')
