@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: copierstore
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --workers 2 --threads 4 --timeout 120 --access-logfile - --error-logfile - wsgi:app
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_DEBUG
+        value: "0"
+      - key: SESSION_COOKIE_SECURE
+        value: "1"
+      - key: SECRET_KEY
+        sync: false
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_RECOVERY_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: LALAMOVE_API_KEY
+        sync: false
+      - key: LALAMOVE_API_SECRET
+        sync: false
+      - key: LALAMOVE_ENV
+        value: production
+      - key: LALAMOVE_MARKET
+        value: PH
+      - key: LALAMOVE_SERVICE_TYPE
+        value: MOTORCYCLE
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
+      - key: SUPPLIER_USERNAME
+        sync: false
+      - key: SUPPLIER_PASSWORD
+        sync: false

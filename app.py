@@ -259,6 +259,14 @@ def _load_local_env():
         pass
 
 _load_local_env()
+
+# Always resolve the database from the application directory (or an explicit
+# DATABASE_PATH). This prevents deployment failures when the process working
+# directory differs from the project root.
+DATABASE_PATH = os.path.abspath(os.environ.get(
+    "DATABASE_PATH",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "orders.db")
+))
 import json
 import math
 import hmac
@@ -339,7 +347,7 @@ app.config.update(
     ),
     SESSION_COOKIE_PATH="/",
     PERMANENT_SESSION_LIFETIME=timedelta(days=7),
-    MAX_CONTENT_LENGTH=8 * 1024 * 1024,
+    MAX_CONTENT_LENGTH=32 * 1024 * 1024,
 )
 
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
@@ -387,6 +395,7 @@ _API_LIMITS = {
     "location-search": (60, 10),
     "reverse-geocode": (60, 10),
     "delivery": (60, 20),
+    "chat": (60, 40),
 }
 
 def _api_rate_limited(name):
@@ -449,7 +458,7 @@ def _get_gemini_client():
 
 
 def ensure_security_tables():
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS security_audit_log (
@@ -468,7 +477,7 @@ def ensure_security_tables():
 def security_log(action, details="", actor_type="system", actor_id=None):
     try:
         ensure_security_tables()
-        conn = sqlite3.connect("orders.db")
+        conn = sqlite3.connect(DATABASE_PATH)
         conn.execute("""
             INSERT INTO security_audit_log
             (actor_type, actor_id, action, details, ip_address)
@@ -568,6 +577,11 @@ def apply_security_headers(response):
     if _ENVIRONMENT == "production" and request.is_secure:
         response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 
+    # Never let shared/browser caches retain authenticated pages or private
+    # account/order information. Public catalog pages remain cacheable.
+    if session.get("customer_id") or session.get("admin_logged_in") or session.get("supplier_logged_in"):
+        response.headers.setdefault("Cache-Control", "private, no-store")
+
     # Inject the CSRF token into existing POST forms so legacy templates do not
     # need to be rewritten one-by-one. API calls are handled by same-origin
     # Origin/Referer checks above.
@@ -591,9 +605,8 @@ def apply_security_headers(response):
 SUPPLIER_USERNAME = (
     os.getenv("SUPPLIER_USERNAME", "").strip()
     or os.getenv("SUPPLIER_EMAIL", "").strip()
-    or "admin"
 )
-SUPPLIER_PASSWORD = os.getenv("SUPPLIER_PASSWORD", "") or "admin"
+SUPPLIER_PASSWORD = os.getenv("SUPPLIER_PASSWORD", "")
 try:
     SUPPLIER_COMMISSION_RATE = float(os.getenv("SUPPLIER_COMMISSION_RATE", "10"))
 except (TypeError, ValueError):
@@ -623,7 +636,7 @@ def get_store_location():
         "latitude": 10.3157,
         "longitude": 123.8854,
     }
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     try:
         row = conn.execute("SELECT store_name, address, location, latitude, longitude FROM store_settings WHERE id = 1").fetchone()
@@ -643,7 +656,7 @@ def get_store_location():
 
 def _init_db_full():
     ensure_security_tables()
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
 
     # Core account/service tables. Older databases already have these;
@@ -1180,7 +1193,7 @@ def _turso_schema_is_ready():
         "chat_conversations", "chat_messages", "order_items", "products",
         "reviews", "product_categories",
     }
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     try:
         cur = conn.cursor()
         cur.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -1196,7 +1209,7 @@ def _ensure_catalog_subcategories():
     This is deliberately separate from the full startup migration because an
     already-initialized Turso database skips the full migration chain.
     """
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     try:
         cur = conn.cursor()
         cur.execute("""
@@ -1284,7 +1297,7 @@ def init_db():
 
 def ensure_accounting_tables():
     """Create bookkeeping tables safely for new and existing databases."""
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS accounting_transactions (
@@ -1349,7 +1362,7 @@ def _accounting_add_transaction(cursor, transaction_type, reference_type, refere
 def sync_accounting_orders():
     """Backfill bookkeeping entries from existing orders without duplicates."""
     ensure_accounting_tables()
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute("""
@@ -1483,7 +1496,7 @@ def sync_accounting_orders():
 def accounting_summary(start_date=None, end_date=None):
     ensure_accounting_tables()
     sync_accounting_orders()
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     where=[]; params=[]
@@ -1517,7 +1530,7 @@ def accounting_summary(start_date=None, end_date=None):
 
 def ensure_live_chat_tables():
     """Create/migrate two-way customer/admin chat tables safely."""
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS chat_conversations (
@@ -1599,7 +1612,7 @@ def _chat_customer_allowed(customer_id):
     return bool(customer_id and session.get("customer_id") == customer_id)
 
 def _chat_get_or_create_conversation(customer_id, order_id=None):
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     if order_id is not None:
@@ -1633,7 +1646,7 @@ def live_support():
     ensure_live_chat_tables()
     if "customer_id" not in session:
         return redirect("/customer-login?next=/support/live")
-    conn=sqlite3.connect("orders.db"); conn.row_factory=sqlite3.Row; cur=conn.cursor()
+    conn=sqlite3.connect(DATABASE_PATH); conn.row_factory=sqlite3.Row; cur=conn.cursor()
     cid=session["customer_id"]
     cur.execute("SELECT id, status, order_id, updated_at FROM chat_conversations WHERE customer_id=? ORDER BY updated_at DESC", (cid,))
     conversations=cur.fetchall()
@@ -1678,7 +1691,7 @@ def admin_messages():
     ensure_live_chat_tables()
     if not session.get("admin_logged_in"):
         return redirect("/login")
-    conn=sqlite3.connect("orders.db"); conn.row_factory=sqlite3.Row; cur=conn.cursor()
+    conn=sqlite3.connect(DATABASE_PATH); conn.row_factory=sqlite3.Row; cur=conn.cursor()
     cur.execute("""
         SELECT c.id, c.customer_id, c.order_id, c.status, c.updated_at,
                cu.name, cu.email,
@@ -1713,12 +1726,14 @@ def admin_messages():
 
 @app.route("/api/chat/conversations", methods=["GET","POST"])
 def chat_conversations_api():
+    if _api_rate_limited("chat"):
+        return jsonify({"success": False, "error": "Too many chat requests. Please wait a moment."}), 429
     ensure_live_chat_tables()
     is_admin=bool(session.get("admin_logged_in"))
     customer_id=session.get("customer_id")
     if not is_admin and not customer_id:
         return jsonify({"success":False,"error":"Login required"}),401
-    conn=sqlite3.connect("orders.db"); conn.row_factory=sqlite3.Row; cur=conn.cursor()
+    conn=sqlite3.connect(DATABASE_PATH); conn.row_factory=sqlite3.Row; cur=conn.cursor()
     if request.method == "POST":
         data=request.get_json(silent=True) or {}
         requested_customer=data.get("customer_id")
@@ -1757,7 +1772,7 @@ def chat_admin_customers_api():
     ensure_live_chat_tables()
     if not session.get("admin_logged_in"):
         return jsonify({"success": False, "error": "Admin login required"}), 401
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     cur.execute("SELECT id, name, email FROM customers ORDER BY name COLLATE NOCASE ASC, id ASC")
@@ -1773,7 +1788,7 @@ def chat_admin_orders_api():
     customer_id = request.args.get("customer_id", type=int)
     if not customer_id:
         return jsonify({"success": False, "error": "Customer is required"}), 400
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     
@@ -1810,7 +1825,7 @@ def chat_link_order_api():
             order_id = int(raw_order)
         except (TypeError, ValueError):
             return jsonify({"success": False, "error": "Invalid order"}), 400
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     cur.execute("SELECT id, customer_id FROM chat_conversations WHERE id=?", (conversation_id,))
@@ -1842,38 +1857,50 @@ def chat_link_order_api():
 
 @app.route("/api/chat/messages")
 def chat_messages_api():
+    if _api_rate_limited("chat"):
+        return jsonify({"success": False, "error": "Too many chat requests. Please wait a moment."}), 429
     ensure_live_chat_tables()
     is_admin=bool(session.get("admin_logged_in"))
     conv_id=request.args.get("conversation_id", type=int)
     requested_customer=request.args.get("customer_id", type=int)
     if not is_admin and not session.get("customer_id"):
         return jsonify({"success":False,"error":"Login required"}),401
-    conn=sqlite3.connect("orders.db"); conn.row_factory=sqlite3.Row; cur=conn.cursor()
-    if conv_id:
-        cur.execute("SELECT * FROM chat_conversations WHERE id=?",(conv_id,)); conv=cur.fetchone()
-        if not conv: conn.close(); return jsonify({"success":False,"error":"Conversation not found"}),404
-        if not is_admin and conv['customer_id'] != session.get('customer_id'):
-            conn.close(); return jsonify({"success":False,"error":"Forbidden"}),403
-    else:
-        cid=requested_customer if is_admin and requested_customer else session.get('customer_id')
-        if not cid: conn.close(); return jsonify({"success":False,"error":"Conversation required"}),400
-        cur.execute("SELECT * FROM chat_conversations WHERE customer_id=? ORDER BY updated_at DESC LIMIT 1",(cid,)); conv=cur.fetchone()
-        if not conv: conn.close(); return jsonify({"success":True,"conversation":None,"messages":[],"unread_total":0})
-        conv_id=conv['id']
-    after=request.args.get("after_id",0,type=int)
-    cur.execute("SELECT id,conversation_id,customer_id,order_id,sender_type,message,is_read,created_at FROM chat_messages WHERE conversation_id=? AND id>? ORDER BY id ASC",(conv_id,after))
-    messages=[dict(r) for r in cur.fetchall()]
-    recipient='customer' if is_admin else 'admin'
-    cur.execute("UPDATE chat_messages SET is_read=1 WHERE conversation_id=? AND sender_type=? AND is_read=0",(conv_id,recipient))
-    conn.commit()
-    cur.execute("SELECT COUNT(*) FROM chat_messages WHERE sender_type=? AND is_read=0" , ('customer' if is_admin else 'admin',))
-    unread_total=cur.fetchone()[0]
-    cur.execute("SELECT c.*,cu.name customer_name,cu.email customer_email FROM chat_conversations c JOIN customers cu ON cu.id=c.customer_id WHERE c.id=?",(conv_id,)); conv=dict(cur.fetchone())
-    conn.close(); return jsonify({"success":True,"conversation":conv,"messages":messages,"unread_total":unread_total})
+    conn=sqlite3.connect(DATABASE_PATH); conn.row_factory=sqlite3.Row; cur=conn.cursor()
+    try:
+        if conv_id:
+            cur.execute("SELECT * FROM chat_conversations WHERE id=?",(conv_id,)); conv=cur.fetchone()
+            if not conv: return jsonify({"success":False,"error":"Conversation not found"}),404
+            if not is_admin and conv['customer_id'] != session.get('customer_id'):
+                return jsonify({"success":False,"error":"Forbidden"}),403
+        else:
+            cid=requested_customer if is_admin and requested_customer else session.get('customer_id')
+            if not cid: return jsonify({"success":False,"error":"Conversation required"}),400
+            cur.execute("SELECT * FROM chat_conversations WHERE customer_id=? ORDER BY updated_at DESC LIMIT 1",(cid,)); conv=cur.fetchone()
+            if not conv: return jsonify({"success":True,"conversation":None,"messages":[],"unread_total":0})
+            conv_id=conv['id']
+        after=max(0, request.args.get("after_id",0,type=int) or 0)
+        cur.execute("SELECT id,conversation_id,customer_id,order_id,sender_type,message,is_read,created_at FROM chat_messages WHERE conversation_id=? AND id>? ORDER BY id ASC LIMIT 100",(conv_id,after))
+        messages=[dict(r) for r in cur.fetchall()]
+        recipient='customer' if is_admin else 'admin'
+        cur.execute("UPDATE chat_messages SET is_read=1 WHERE conversation_id=? AND sender_type=? AND is_read=0",(conv_id,recipient))
+        conn.commit()
+        cur.execute("SELECT COUNT(*) FROM chat_messages WHERE sender_type=? AND is_read=0" , ('customer' if is_admin else 'admin',))
+        unread_total=cur.fetchone()[0]
+        cur.execute("SELECT c.*,cu.name customer_name,cu.email customer_email FROM chat_conversations c JOIN customers cu ON cu.id=c.customer_id WHERE c.id=?",(conv_id,)); conv_row=cur.fetchone()
+        if not conv_row: return jsonify({"success":False,"error":"Conversation no longer exists"}),404
+        conv=dict(conv_row)
+        return jsonify({"success":True,"conversation":conv,"messages":messages,"unread_total":unread_total})
+    except Exception as exc:
+        security_log("chat_messages_error", repr(exc)[:1000])
+        return jsonify({"success":False,"error":"Chat is temporarily unavailable. Please refresh and try again."}),503
+    finally:
+        conn.close()
 
 @app.route("/api/chat/send", methods=["POST"])
 def chat_send_api():
     """Send a customer/admin chat message without letting notification failures block delivery."""
+    if _api_rate_limited("chat"):
+        return jsonify({"success": False, "error": "Too many chat requests. Please wait a moment."}), 429
     ensure_live_chat_tables()
     message = (request.form.get("message") or "").strip()[:1000]
     if not message:
@@ -1884,7 +1911,7 @@ def chat_send_api():
     customer_id = request.form.get("customer_id", type=int)
     order_id = request.form.get("order_id", type=int)
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     try:
@@ -1994,7 +2021,7 @@ def admin_accounting():
             expense_date=(request.form.get("expense_date") or datetime.now().strftime("%Y-%m-%d"))[:10]
             method=(request.form.get("payment_method") or "Cash").strip()[:50]
             if not description: return "Description is required.", 400
-            conn=sqlite3.connect("orders.db")
+            conn=sqlite3.connect(DATABASE_PATH)
             conn.execute("INSERT INTO accounting_expenses(expense_date,category,description,amount,payment_method) VALUES(?,?,?,?,?)",(expense_date,category,description,round(amount,2),method))
             conn.commit(); conn.close()
             try:
@@ -2005,7 +2032,7 @@ def admin_accounting():
             return redirect("/admin/accounting")
         if action == "delete_expense":
             expense_id=int(request.form.get("expense_id",0) or 0)
-            conn=sqlite3.connect("orders.db"); conn.execute("DELETE FROM accounting_expenses WHERE id=?",(expense_id,)); conn.commit(); conn.close()
+            conn=sqlite3.connect(DATABASE_PATH); conn.execute("DELETE FROM accounting_expenses WHERE id=?",(expense_id,)); conn.commit(); conn.close()
             try:
                 sync_accounting_orders()
             except Exception:
@@ -2015,7 +2042,7 @@ def admin_accounting():
     start_date=request.args.get("start_date") or datetime.now().strftime("%Y-%m-01")
     end_date=request.args.get("end_date") or datetime.now().strftime("%Y-%m-%d")
     summary, balances=accounting_summary(start_date,end_date)
-    conn=sqlite3.connect("orders.db"); conn.row_factory=sqlite3.Row; cur=conn.cursor()
+    conn=sqlite3.connect(DATABASE_PATH); conn.row_factory=sqlite3.Row; cur=conn.cursor()
     cur.execute("""SELECT t.id,t.transaction_type,t.reference_type,t.reference_id,t.description,t.transaction_date,l.account_name,l.debit,l.credit FROM accounting_transactions t JOIN accounting_lines l ON l.transaction_id=t.id WHERE date(t.transaction_date) BETWEEN date(?) AND date(?) ORDER BY t.transaction_date DESC,t.id DESC,l.id ASC LIMIT 500""",(start_date,end_date))
     ledger=cur.fetchall()
     cur.execute("SELECT * FROM accounting_expenses WHERE date(expense_date) BETWEEN date(?) AND date(?) ORDER BY expense_date DESC,id DESC LIMIT 200",(start_date,end_date)); expenses=cur.fetchall()
@@ -2029,7 +2056,7 @@ def admin_accounting_export():
     ensure_accounting_tables(); sync_accounting_orders()
     import csv, io
     start=request.args.get("start_date") or "1900-01-01"; end=request.args.get("end_date") or "2999-12-31"
-    conn=sqlite3.connect("orders.db"); conn.row_factory=sqlite3.Row; cur=conn.cursor()
+    conn=sqlite3.connect(DATABASE_PATH); conn.row_factory=sqlite3.Row; cur=conn.cursor()
     cur.execute("""SELECT t.transaction_date,t.transaction_type,t.reference_type,t.reference_id,t.description,l.account_name,l.debit,l.credit FROM accounting_transactions t JOIN accounting_lines l ON l.transaction_id=t.id WHERE date(t.transaction_date) BETWEEN date(?) AND date(?) ORDER BY t.transaction_date,t.id,l.id""",(start,end)); rows=cur.fetchall()
     cur.execute("SELECT expense_date,category,description,amount,payment_method FROM accounting_expenses WHERE date(expense_date) BETWEEN date(?) AND date(?) ORDER BY expense_date,id",(start,end)); exps=cur.fetchall(); conn.close()
     out=io.StringIO(); writer=csv.writer(out); writer.writerow(["Date","Type","Reference","Description","Account","Debit","Credit"])
@@ -2041,7 +2068,7 @@ def admin_accounting_export():
 
 def ensure_admin_stock_alerts():
     """Create low/out-of-stock admin alerts without spamming dashboard refreshes."""
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     try:
         cur = conn.cursor()
         cur.execute("""
@@ -2099,6 +2126,8 @@ def ensure_admin_stock_alerts():
 @app.route("/supplier/login", methods=["GET", "POST"])
 @app.route("/supplier-login", methods=["GET", "POST"])
 def supplier_login():
+    if not SUPPLIER_USERNAME or not SUPPLIER_PASSWORD:
+        return render_template("supplier_login.html", error="Supplier access is not enabled on this deployment."), 503
     if request.method == "POST":
         username = (request.form.get("username") or request.form.get("email") or "").strip()
         password = request.form.get("password") or ""
@@ -2116,9 +2145,11 @@ def supplier_logout():
 @app.route("/supplier")
 @app.route("/supplier-dashboard")
 def supplier_dashboard():
+    if not SUPPLIER_USERNAME or not SUPPLIER_PASSWORD:
+        return "Supplier portal is not enabled.", 404
     if not session.get("supplier_logged_in"):
         return redirect("/supplier/login")
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     cur.execute("SELECT COALESCE(SUM(total),0) AS total_sales, COUNT(*) AS order_count FROM orders WHERE COALESCE(status,'') NOT IN ('Cancelled','Canceled')")
@@ -2137,7 +2168,7 @@ def admin():
     if not session.get("admin_logged_in"):
        return redirect("/login")
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -2226,7 +2257,7 @@ def update_status(order_id):
     if status not in allowed_statuses:
         return "Invalid order status.", 400
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -2354,7 +2385,7 @@ def add_to_cart():
 
     # Always verify stock on the server.
     # Client-side buttons can be bypassed, so the database is authoritative.
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute("""
         SELECT stock, base_price, markup
@@ -2436,7 +2467,7 @@ def buy_now():
     # CHECK PRODUCT STOCK
     # =========================================================
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -2496,7 +2527,7 @@ def buy_now():
     # CONNECT TO DATABASE
     # =========================================================
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -2607,7 +2638,7 @@ def cart():
     saved_for_later = session.get("saved_for_later", [])
 
     # Add current stock as display-only metadata without changing the cart schema.
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     cur = conn.cursor()
     stock_by_name = {}
     names = [str(item.get("product", "")) for item in cart + saved_for_later]
@@ -2643,7 +2674,7 @@ def checkout():
     delivery_fee = session.get("delivery_fee", 150)
     total = cart_total + delivery_fee
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -2742,7 +2773,7 @@ def update_cart(index):
 
         if quantity > 0:
             # Validate against the latest database stock.
-            conn = sqlite3.connect("orders.db")
+            conn = sqlite3.connect(DATABASE_PATH)
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT stock
@@ -2802,7 +2833,7 @@ def customer_ai_api():
     if len(message) > 1000:
         return jsonify({"success": False, "error": "Message is too long."}), 400
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
 
@@ -2994,7 +3025,7 @@ def storefront_home():
     template_dir = Path(app.template_folder or "templates")
     for candidate in ("index.html", "home.html", "shop.html", "customer_home.html"):
         if (template_dir / candidate).is_file():
-            conn = sqlite3.connect("orders.db")
+            conn = sqlite3.connect(DATABASE_PATH)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM products ORDER BY id DESC")
@@ -3054,7 +3085,7 @@ def ask_ai():
     # GET CURRENT STORE DATA
     # =========================================================
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -3640,7 +3671,7 @@ ANSWER STYLE:
 def wishlist():
     if not session.get("customer_id"):
         return redirect("/customer-login")
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     rows = conn.execute("""
         SELECT p.*, w.id AS wishlist_id
@@ -3654,7 +3685,7 @@ def wishlist():
 def wishlist_toggle(product_id):
     if not session.get("customer_id"):
         return jsonify({"ok": False, "login_required": True}), 401
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     cur = conn.cursor()
     cur.execute("SELECT id FROM wishlist WHERE customer_id=? AND product_id=?", (session["customer_id"], product_id))
     row = cur.fetchone()
@@ -3669,27 +3700,27 @@ def wishlist_toggle(product_id):
 def admin_notifications():
     if not session.get("admin_logged_in"):
         return redirect("/login")
-    conn=sqlite3.connect("orders.db"); conn.row_factory=sqlite3.Row
+    conn=sqlite3.connect(DATABASE_PATH); conn.row_factory=sqlite3.Row
     rows=conn.execute("SELECT * FROM admin_notifications ORDER BY id DESC LIMIT 100").fetchall(); conn.close()
     return render_template("admin_notifications.html", notifications=rows, admin_notifications=rows)
 
 @app.route("/admin/notifications/read/<int:notification_id>", methods=["POST"])
 def admin_notification_read(notification_id):
     if not session.get("admin_logged_in"): return redirect("/login")
-    conn=sqlite3.connect("orders.db"); conn.execute("UPDATE admin_notifications SET is_read=1 WHERE id=?",(notification_id,)); conn.commit(); conn.close()
+    conn=sqlite3.connect(DATABASE_PATH); conn.execute("UPDATE admin_notifications SET is_read=1 WHERE id=?",(notification_id,)); conn.commit(); conn.close()
     return redirect(request.referrer or "/admin/notifications")
 
 @app.route("/admin/notifications/read-all", methods=["POST"])
 def admin_notifications_read_all():
     if not session.get("admin_logged_in"): return redirect("/login")
-    conn=sqlite3.connect("orders.db"); conn.execute("UPDATE admin_notifications SET is_read=1 WHERE is_read=0"); conn.commit(); conn.close()
+    conn=sqlite3.connect(DATABASE_PATH); conn.execute("UPDATE admin_notifications SET is_read=1 WHERE is_read=0"); conn.commit(); conn.close()
     return redirect(request.referrer or "/admin/notifications")
 
 @app.route("/admin/notifications/feed")
 def admin_notifications_feed():
     if not session.get("admin_logged_in"):
         return jsonify({"success": False, "error": "Unauthorized"}), 401
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     try:
         unread = conn.execute("SELECT COUNT(*) FROM admin_notifications WHERE is_read = 0").fetchone()[0]
         latest = conn.execute("SELECT id, notification_type, message, created_at FROM admin_notifications ORDER BY id DESC LIMIT 10").fetchall()
@@ -3705,7 +3736,7 @@ def admin_notifications_feed():
 @app.route("/admin/security")
 def admin_security():
     if not session.get("admin_logged_in"): return redirect("/login")
-    conn=sqlite3.connect("orders.db"); conn.row_factory=sqlite3.Row
+    conn=sqlite3.connect(DATABASE_PATH); conn.row_factory=sqlite3.Row
     logs=conn.execute("SELECT * FROM security_audit_log ORDER BY id DESC LIMIT 100").fetchall(); conn.close()
     return render_template("admin_security.html", logs=logs, security_logs=logs)
 
@@ -3738,7 +3769,7 @@ def admin_forgot_password():
     if new_password != confirm_password:
         return render_template("admin_forgot_password.html", error="The new passwords do not match."), 400
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.execute("INSERT OR REPLACE INTO admin_credentials (id, username, password_hash) VALUES (1, ?, ?)", (username, generate_password_hash(new_password)))
     conn.commit(); conn.close()
     _clear_login_failures("admin-recovery")
@@ -3760,7 +3791,7 @@ def admin_delivery_details(order_id):
         allowed = {"Awaiting Manual Courier Assignment", "Courier Assigned", "Picked Up", "In Transit", "Out for Delivery", "Delivered"}
         if status not in allowed:
             return "Invalid delivery status.", 400
-        conn=sqlite3.connect("orders.db")
+        conn=sqlite3.connect(DATABASE_PATH)
         row=conn.execute("SELECT delivery_fee FROM orders WHERE id=?", (order_id,)).fetchone()
         if not row:
             conn.close(); return "Order not found",404
@@ -3772,7 +3803,7 @@ def admin_delivery_details(order_id):
             (request.form.get("courier_fee_adjustment_note") or "").strip()[:1000], status, order_id))
         conn.commit(); conn.close()
         return redirect(f"/admin/order/{order_id}/delivery-details")
-    conn=sqlite3.connect("orders.db"); conn.row_factory=sqlite3.Row
+    conn=sqlite3.connect(DATABASE_PATH); conn.row_factory=sqlite3.Row
     order=conn.execute("SELECT * FROM orders WHERE id=?",(order_id,)).fetchone(); conn.close()
     if not order: return "Order not found",404
     return render_template("order-details.html", order=order)
@@ -3955,7 +3986,7 @@ def _save_lalamove_order_sync(order_id, data):
     driver_id = data.get("driverId") or None
     sharelink = data.get("sharelink") or data.get("shareLink") or None
     delivery_status = _map_lalamove_status(status)
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     try:
         previous = conn.execute("SELECT customer_id, lalamove_status FROM orders WHERE id=?", (order_id,)).fetchone()
         conn.execute("""
@@ -3988,7 +4019,7 @@ def _fetch_lalamove_driver(order_id, lalamove_order_id, driver_id):
     ok, data = _lalamove_request("GET", f"/v3/orders/{lalamove_order_id}/drivers/{driver_id}")
     if not ok:
         return False, data
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     try:
         conn.execute("""
             UPDATE orders SET
@@ -4007,7 +4038,7 @@ def _fetch_lalamove_driver(order_id, lalamove_order_id, driver_id):
 def admin_lalamove_book(order_id):
     if not session.get("admin_logged_in"):
         return redirect("/login")
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     order = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
     conn.close()
@@ -4055,7 +4086,7 @@ def admin_lalamove_book(order_id):
         return str(data), 400
 
     _save_lalamove_order_sync(order_id, data)
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.execute("""
         UPDATE orders SET
             lalamove_quotation_id = ?,
@@ -4085,7 +4116,7 @@ def admin_lalamove_book(order_id):
 def admin_lalamove_sync(order_id):
     if not session.get("admin_logged_in"):
         return redirect("/login")
-    conn = sqlite3.connect("orders.db"); conn.row_factory = sqlite3.Row
+    conn = sqlite3.connect(DATABASE_PATH); conn.row_factory = sqlite3.Row
     order = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone(); conn.close()
     if not order or not order["lalamove_order_id"]:
         return "Lalamove order has not been booked yet.", 400
@@ -4102,7 +4133,7 @@ def admin_lalamove_sync(order_id):
 def customer_lalamove_status(order_id):
     if not session.get("customer_id") and not session.get("admin_logged_in"):
         return jsonify({"success": False, "message": "Please log in first."}), 401
-    conn = sqlite3.connect("orders.db"); conn.row_factory = sqlite3.Row
+    conn = sqlite3.connect(DATABASE_PATH); conn.row_factory = sqlite3.Row
     if session.get("admin_logged_in"):
         order = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
     else:
@@ -4143,7 +4174,7 @@ def calculate_delivery():
     # Prefer the saved GPS pin when a saved address is selected.
     if session.get("customer_id") and selected_address:
         try:
-            conn = sqlite3.connect("orders.db")
+            conn = sqlite3.connect(DATABASE_PATH)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute("""
@@ -4355,7 +4386,7 @@ def customer_settings():
 
     customer_id = session["customer_id"]
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -4438,7 +4469,7 @@ def add_customer_address():
     ]):
         return redirect("/customer-settings?error=Please fill in all address fields.")
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -4525,7 +4556,7 @@ def edit_customer_address(address_id):
     if not all([label, recipient_name, phone, address, location]):
         return redirect("/customer-settings?error=Please fill in all address fields.")
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -4576,7 +4607,7 @@ def delete_customer_address(address_id):
 
     customer_id = session["customer_id"]
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -4645,7 +4676,7 @@ def set_default_customer_address(address_id):
 
     customer_id = session["customer_id"]
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
 
     # Remove default from all addresses
@@ -4689,7 +4720,7 @@ def update_profile():
     if not name or not email or not phone:
         return redirect("/customer-settings")
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
 
     # Check if another customer already uses this email
@@ -4760,12 +4791,12 @@ def change_password():
     if not current_password or not new_password:
         return redirect("/customer-settings")
 
-    if len(new_password) < 6:
+    if len(new_password) < 8:
 
         return render_template(
             "customer_settings.html",
             customer=get_customer_for_settings(customer_id),
-            error="New password must be at least 6 characters."
+            error="New password must be at least 8 characters."
         )
 
     if new_password != confirm_password:
@@ -4776,7 +4807,7 @@ def change_password():
             error="New passwords do not match."
         )
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -4834,7 +4865,7 @@ def change_password():
 
 def get_customer_for_settings(customer_id):
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -4859,7 +4890,7 @@ def delete_account():
 
     customer_id = session["customer_id"]
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
 
     # Remove notifications
@@ -4928,16 +4959,16 @@ def register():
                 error="Passwords do not match."
             ), 400
 
-        if len(password) < 6:
+        if len(password) < 8:
             return render_template(
                 "register.html",
-                error="Password must be at least 6 characters."
+                error="Password must be at least 8 characters."
             ), 400
 
         password_hash = generate_password_hash(password)
         conn = None
         try:
-            conn = sqlite3.connect("orders.db")
+            conn = sqlite3.connect(DATABASE_PATH)
             cursor = conn.cursor()
 
             # Keep existing production databases compatible.  Do not rely on
@@ -5043,7 +5074,7 @@ def customer_login():
         email = (request.form.get("email") or "").strip().lower()
         password = request.form.get("password") or ""
 
-        conn = sqlite3.connect("orders.db")
+        conn = sqlite3.connect(DATABASE_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
@@ -5102,7 +5133,7 @@ def customer_dashboard():
 
     customer_id = session["customer_id"]
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -5182,7 +5213,7 @@ def cancel_customer_order(order_id):
     customer_id = session["customer_id"]
     reason = request.form.get("reason", "Customer changed their mind").strip()[:300]
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -5263,7 +5294,7 @@ def customer_order(order_id):
 
     customer_id = session["customer_id"]
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -5306,7 +5337,7 @@ def mark_notification_read(notification_id):
     if not customer_id:
         return redirect("/customer-login")
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -5327,7 +5358,7 @@ def repair_photo(filename):
     if not session.get("admin_logged_in") and not session.get("customer_id"):
         return redirect("/customer-login")
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     row = conn.execute(
         "SELECT customer_id FROM repair_requests WHERE photo_filename = ?",
@@ -5345,7 +5376,7 @@ def repair_photo(filename):
 def repair_video(filename):
     if not session.get("admin_logged_in") and not session.get("customer_id"):
         return redirect("/customer-login")
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     row = conn.execute("SELECT customer_id FROM repair_requests WHERE video_filename = ?", (filename,)).fetchone()
     conn.close()
@@ -5365,7 +5396,7 @@ def repair():
 
     customer_id = session["customer_id"]
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -5402,7 +5433,7 @@ def repair():
         service_date = request.form.get("service_date")
 
         # Make sure selected address belongs to this customer
-        conn = sqlite3.connect("orders.db")
+        conn = sqlite3.connect(DATABASE_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
@@ -5600,7 +5631,7 @@ def repair_requests():
     if not session.get("admin_logged_in"):
         return redirect("/login")
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -5639,7 +5670,7 @@ def repair_tracking(request_id):
     if not session.get("admin_logged_in") and not session.get("customer_id"):
         return redirect("/customer-login")
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -5666,7 +5697,7 @@ def update_repair_status(request_id):
 
     status = request.form.get("status")
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
 
     # Get customer's ID and old status
@@ -5718,7 +5749,7 @@ def product_image(product_id, filename):
     work when they exist. New uploads are stored in product_images and survive
     Render redeploys.
     """
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     try:
         conn.row_factory = sqlite3.Row
         try:
@@ -5743,7 +5774,7 @@ def product_image(product_id, filename):
 @app.route("/product/<path:product_ref>")
 def product_details(product_ref):
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -5833,7 +5864,7 @@ def add_review(product_ref):
 
     comment = request.form.get("comment", "").strip()
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -5917,7 +5948,7 @@ def place_order():
     saved_latitude = None
     saved_longitude = None
     if session.get("customer_id") and selected_address_id:
-        conn = sqlite3.connect("orders.db")
+        conn = sqlite3.connect(DATABASE_PATH)
         conn.row_factory = sqlite3.Row
         try:
             row = conn.execute("""
@@ -5951,7 +5982,7 @@ def place_order():
         # COD orders require the configured security deposit before dispatch.
         # The deposit is a separate payment and does not reduce the displayed
         # order total; it is credited/refunded according to store policy.
-        conn = sqlite3.connect("orders.db")
+        conn = sqlite3.connect(DATABASE_PATH)
         conn.row_factory = sqlite3.Row
         try:
             settings = conn.execute(
@@ -5993,7 +6024,7 @@ def place_order():
     # Normalize and re-price every cart item from the database. Never trust
     # prices submitted by the browser.
     normalized_cart = []
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     try:
         for raw_item in cart:
@@ -6059,7 +6090,7 @@ def place_order():
     cod_deposit_amount = 0.0
     cod_deposit_status = "Not Required"
     if payment_method == "Cash on Delivery":
-        conn = sqlite3.connect("orders.db")
+        conn = sqlite3.connect(DATABASE_PATH)
         conn.row_factory = sqlite3.Row
         try:
             settings = conn.execute(
@@ -6075,7 +6106,7 @@ def place_order():
     customer_id = session.get("customer_id")
     receipt_filename = None
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     try:
         cursor = conn.cursor()
 
@@ -6201,7 +6232,7 @@ def update_payment(order_id, action):
     if action not in {"confirm", "reject"}:
         return "Invalid payment action.", 400
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     try:
         order = conn.execute(
@@ -6243,7 +6274,7 @@ def update_payment(order_id, action):
 def confirm_cod_deposit(order_id):
     if not session.get("admin_logged_in"):
         return redirect("/login")
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     try:
         order = conn.execute("SELECT id, customer_id, payment_method, cod_deposit_amount, cod_deposit_status FROM orders WHERE id=?", (order_id,)).fetchone()
@@ -6269,7 +6300,7 @@ def confirm_cod_deposit(order_id):
 def reject_cod_deposit(order_id):
     if not session.get("admin_logged_in"):
         return redirect("/login")
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     try:
         order = conn.execute("SELECT id, customer_id, payment_method, cod_deposit_amount, cod_deposit_status FROM orders WHERE id=?", (order_id,)).fetchone()
@@ -6302,7 +6333,7 @@ def orders():
     if not session.get("admin_logged_in"):
         return redirect("/login")
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -6363,7 +6394,7 @@ def track_order():
     except (TypeError, ValueError):
         return render_template("track_order.html", error="Please enter a valid order number.")
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute("""
@@ -6395,7 +6426,7 @@ def customer_order_delivery_status(order_id):
     if not customer_id:
         return jsonify({"success": False, "error": "Login required."}), 401
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     try:
         order = conn.execute("""
@@ -6430,7 +6461,7 @@ def order_details(order_id):
     if not session.get("admin_logged_in") and not session.get("customer_id"):
         return redirect("/customer-login?next=/order/{}".format(order_id))
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -6481,7 +6512,7 @@ def login():
         # After the first successful environment-based login, a hashed DB
         # credential is created. This allows the recovery flow to rotate the
         # password without ever storing plaintext credentials.
-        conn = sqlite3.connect("orders.db")
+        conn = sqlite3.connect(DATABASE_PATH)
         conn.row_factory = sqlite3.Row
         stored = conn.execute("SELECT username, password_hash FROM admin_credentials WHERE id = 1").fetchone()
         conn.close()
@@ -6495,7 +6526,7 @@ def login():
 
         if valid:
             if not stored and expected_username and hmac.compare_digest(username, expected_username):
-                conn = sqlite3.connect("orders.db")
+                conn = sqlite3.connect(DATABASE_PATH)
                 conn.execute("INSERT OR REPLACE INTO admin_credentials (id, username, password_hash) VALUES (1, ?, ?)", (username, generate_password_hash(password)))
                 conn.commit(); conn.close()
             session.clear()
@@ -6537,7 +6568,7 @@ def _cart_shipping_specs(cart):
     """Return conservative aggregate shipping specs for a cart."""
     if not cart:
         return {"weight_kg": 0.0, "length_cm": 0.0, "width_cm": 0.0, "height_cm": 0.0, "volume_cm3": 0.0, "complete": True}
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     try:
         total_weight = total_volume = 0.0
@@ -6614,7 +6645,7 @@ def add_product():
 
         images_data = ",".join(image_filenames)
         # Save product to database
-        conn = sqlite3.connect("orders.db")
+        conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
 
         if subcategory:
@@ -6652,7 +6683,7 @@ def add_product():
 
         return redirect("/admin/products")
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -6691,7 +6722,7 @@ def admin_products():
     if not session.get("admin_logged_in"):
         return redirect("/login")
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -6733,7 +6764,7 @@ def edit_product(product_id):
     if not session.get("admin_logged_in"):
         return redirect("/login")
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -6868,7 +6899,7 @@ def edit_product(product_id):
     if not product:
         return "Product not found", 404
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute("SELECT id, name, icon FROM product_categories ORDER BY id ASC")
@@ -6894,7 +6925,7 @@ def delete_product(product_id):
     if not session.get("admin_logged_in"):
         return redirect("/login")
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.execute("PRAGMA foreign_keys = ON")
     cursor = conn.cursor()
 
@@ -6933,7 +6964,7 @@ def admin_categories():
     if not session.get("admin_logged_in"):
         return redirect("/login")
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -6984,7 +7015,7 @@ def delete_category(category_id):
     if not session.get("admin_logged_in"):
         return redirect("/login")
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute("SELECT name FROM product_categories WHERE id = ?", (category_id,))
@@ -7020,7 +7051,7 @@ def add_subcategory():
         flash("Subcategory name is required.", "error")
         return redirect("/admin/categories")
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     try:
         row = conn.execute("SELECT name FROM product_categories WHERE id = ?", (category_id,)).fetchone()
         if not row:
@@ -7054,7 +7085,7 @@ def edit_subcategory(subcategory_id):
         flash("Subcategory name is required.", "error")
         return redirect("/admin/categories")
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     try:
         row = conn.execute("SELECT category_id FROM product_subcategories WHERE id = ?", (subcategory_id,)).fetchone()
         if not row:
@@ -7075,7 +7106,7 @@ def edit_subcategory(subcategory_id):
 def delete_subcategory(subcategory_id):
     if not session.get("admin_logged_in"):
         return redirect("/login")
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     try:
         row = conn.execute("SELECT name FROM product_subcategories WHERE id = ?", (subcategory_id,)).fetchone()
         if not row:
@@ -7098,7 +7129,7 @@ def admin_store_settings():
     if not session.get("admin_logged_in"):
         return redirect("/login")
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -7138,7 +7169,7 @@ def admin_payment_settings():
     if not session.get("admin_logged_in"):
         return redirect("/login")
 
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -7220,7 +7251,7 @@ def forgot_password():
     step=request.form.get("step")
     if step == "verify":
         email=(request.form.get("email") or "").strip().lower(); phone=(request.form.get("phone") or "").strip()
-        conn=sqlite3.connect("orders.db"); conn.row_factory=sqlite3.Row; cur=conn.cursor()
+        conn=sqlite3.connect(DATABASE_PATH); conn.row_factory=sqlite3.Row; cur=conn.cursor()
         cur.execute("SELECT id FROM customers WHERE email = ? AND phone = ?",(email,phone)); customer=cur.fetchone(); conn.close()
         if not customer:
             _record_login_failure("password-reset")
@@ -7239,7 +7270,7 @@ def forgot_password():
             return render_template("forgot_password.html",step="reset",reset_token=token,error="Password must be at least 8 characters.")
         if new_password != confirm:
             return render_template("forgot_password.html",step="reset",reset_token=token,error="Passwords do not match.")
-        conn=sqlite3.connect("orders.db"); conn.execute("UPDATE customers SET password = ? WHERE id = ?",(generate_password_hash(new_password),customer_id)); conn.commit(); conn.close()
+        conn=sqlite3.connect(DATABASE_PATH); conn.execute("UPDATE customers SET password = ? WHERE id = ?",(generate_password_hash(new_password),customer_id)); conn.commit(); conn.close()
         session.pop("password_reset_token",None); session.pop("password_reset_customer_id",None); session.pop("password_reset_expires",None)
         security_log("password_reset_completed","Password reset completed","customer",customer_id)
         return redirect("/customer-login")

@@ -1,1 +1,1 @@
-web: waitress-serve --listen=0.0.0.0:$PORT wsgi:app
+web: gunicorn --workers 2 --threads 4 --timeout 120 --access-logfile - --error-logfile - wsgi:app
