@@ -1,0 +1,50 @@
+name: Fix mobile customer dashboard link
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix-mobile-dashboard:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fix mobile account link
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("templates/index.html")
+          text = path.read_text(encoding="utf-8")
+
+          old = '''            .account-link {\n                display: none !important;\n            }'''
+          new = '''            .account-link {\n                display: inline-flex !important;\n                align-items: center;\n                justify-content: center;\n                max-width: 112px;\n                overflow: hidden;\n                white-space: nowrap;\n                text-overflow: ellipsis;\n                border: 1px solid var(--line);\n            }'''
+
+          if old not in text:
+              raise SystemExit("Expected mobile .account-link rule was not found; refusing to modify the file.")
+
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+
+      - name: Commit change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add templates/index.html
+          git diff --cached --check
+          git diff --cached --quiet && { echo "No changes needed."; exit 0; }
+          git commit -m "Show customer dashboard link on mobile"
+          git push
+
+      - name: Remove temporary workflow
+        if: success()
+        run: |
+          git rm .github/workflows/fix-mobile-dashboard-link.yml
+          git commit -m "Remove temporary mobile dashboard fix workflow"
+          git push
