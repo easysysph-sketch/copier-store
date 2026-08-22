@@ -266,9 +266,9 @@ app.config.update(
     MAX_CONTENT_LENGTH=8 * 1024 * 1024,
 )
 
-UPLOAD_FOLDER = "static/uploads"
+UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 # Private customer/payment files must never live under Flask's public static directory.
-PRIVATE_UPLOAD_FOLDER = "private_uploads"
+PRIVATE_UPLOAD_FOLDER = os.path.join(app.root_path, "private_uploads")
 PAYMENT_UPLOAD_FOLDER = os.path.join(PRIVATE_UPLOAD_FOLDER, "payment_receipts")
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
@@ -937,6 +937,7 @@ def _init_db_full():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             category TEXT NOT NULL,
+            subcategory TEXT,
             base_price REAL NOT NULL,
             markup REAL DEFAULT 0,
             stock INTEGER DEFAULT 0,
@@ -1109,6 +1110,7 @@ def _ensure_catalog_subcategories():
             CREATE TABLE IF NOT EXISTS product_subcategories (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 category_id INTEGER NOT NULL,
+                category TEXT,
                 name TEXT NOT NULL,
                 created_at TEXT,
                 UNIQUE(category_id, name),
@@ -1116,9 +1118,40 @@ def _ensure_catalog_subcategories():
             )
         """)
         try:
+            cur.execute("ALTER TABLE product_subcategories ADD COLUMN category TEXT")
+        except Exception:
+            pass
+        try:
             cur.execute("ALTER TABLE products ADD COLUMN subcategory TEXT")
         except Exception:
             pass
+        try:
+            cur.execute("""
+                UPDATE product_subcategories
+                SET category = (SELECT name FROM product_categories WHERE id = product_subcategories.category_id)
+                WHERE category IS NULL OR TRIM(category) = ''
+            """)
+        except Exception:
+            pass
+
+        # Seed the standard storefront subcategories on fresh databases while
+        # preserving any custom categories/subcategories already created.
+        defaults = {
+            "Photocopier": ["Xerox", "Fuji Xerox", "Konica Minolta", "Canon", "Ricoh", "Kyocera", "Sharp"],
+            "Printers": ["Laser Printer", "Inkjet Printer", "Multifunction Printer", "Dot Matrix"],
+            "Toner": ["Black Toner", "Color Toner", "Developer", "Drum", "Waste Toner", "Ink Cartridge"],
+            "Spare Parts": ["Drum Unit", "Fuser Unit", "Transfer Belt", "Pickup Roller", "Maintenance Kit", "Other Parts"],
+            "Office Supplies": ["Bond Paper", "Specialty Paper", "Labels", "Filing Supplies"],
+        }
+        for category_name, names in defaults.items():
+            row = cur.execute("SELECT id FROM product_categories WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1", (category_name,)).fetchone()
+            if not row:
+                continue
+            category_id = row[0]
+            for sub_name in names:
+                exists = cur.execute("SELECT 1 FROM product_subcategories WHERE category_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1", (category_id, sub_name)).fetchone()
+                if not exists:
+                    cur.execute("INSERT INTO product_subcategories (category, category_id, name, created_at) VALUES (?, ?, ?, ?)", (category_name, category_id, sub_name, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
         conn.commit()
     finally:
         conn.close()
@@ -1953,6 +1986,7 @@ def ensure_admin_stock_alerts():
 
 
 @app.route("/supplier/login", methods=["GET", "POST"])
+@app.route("/supplier-login", methods=["GET", "POST"])
 def supplier_login():
     if request.method == "POST":
         username = (request.form.get("username") or request.form.get("email") or "").strip()
@@ -1969,6 +2003,7 @@ def supplier_logout():
     return redirect("/supplier/login")
 
 @app.route("/supplier")
+@app.route("/supplier-dashboard")
 def supplier_dashboard():
     if not session.get("supplier_logged_in"):
         return redirect("/supplier/login")
@@ -2187,6 +2222,11 @@ def update_status(order_id):
 def add_to_cart():
 
     if not session.get("customer_id"):
+        # Keep normal browser forms redirecting to login, but make AJAX/fetch
+        # requests explicit so the frontend cannot mistake the login page for
+        # a successful add-to-cart response.
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": False, "login_required": True}), 401
         return redirect("/customer-login")
 
     product = (request.form.get("product") or "").strip()
@@ -2852,7 +2892,7 @@ def storefront_home():
             categories = cursor.fetchall()
 
             cursor.execute("""
-                SELECT id, category_id, category, name
+                SELECT id, category_id, name
                 FROM product_subcategories
                 ORDER BY id ASC
             """)
@@ -2911,6 +2951,7 @@ def ask_ai():
         SELECT
             name,
             category,
+            subcategory,
             base_price,
             markup,
             stock,
@@ -5480,18 +5521,20 @@ def update_repair_status(request_id):
     return redirect("/repair-requests")
 
 
-@app.route("/product/<product_name>")
-def product_details(product_name):
+@app.route("/product/<path:product_ref>")
+def product_details(product_ref):
 
     conn = sqlite3.connect("orders.db")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT *
-        FROM products
-        WHERE name = ?
-    """, (product_name,))
+    # Resolve numeric product IDs first; otherwise treat the whole path as a
+    # legacy product name. Using one path route avoids Flask choosing the wrong
+    # converter when a numeric-looking product reference is submitted.
+    if product_ref.isdigit():
+        cursor.execute("SELECT * FROM products WHERE id = ?", (int(product_ref),))
+    else:
+        cursor.execute("SELECT * FROM products WHERE name = ?", (product_ref,))
 
     product = cursor.fetchone()
 
@@ -5554,15 +5597,22 @@ def product_details(product_name):
     )
 
 
-@app.route("/product/<product_name>/review", methods=["POST"])
-def add_review(product_name):
+@app.route("/product/<path:product_ref>/review", methods=["POST"])
+def add_review(product_ref):
 
     # Must be logged in
     if not session.get("customer_id"):
         return redirect("/customer-login")
 
-    rating = int(request.form["rating"])
-    comment = request.form.get("comment", "")
+    # Validate review input instead of allowing malformed form data to become a 500.
+    try:
+        rating = int(request.form.get("rating", ""))
+    except (TypeError, ValueError):
+        return "Please select a rating from 1 to 5.", 400
+    if rating < 1 or rating > 5:
+        return "Please select a rating from 1 to 5.", 400
+
+    comment = request.form.get("comment", "").strip()
 
     conn = sqlite3.connect("orders.db")
     conn.row_factory = sqlite3.Row
@@ -5582,12 +5632,12 @@ def add_review(product_name):
         session.pop("customer_id", None)
         return redirect("/customer-login")
 
-    # Get product
-    cursor.execute("""
-        SELECT id
-        FROM products
-        WHERE name = ?
-    """, (product_name,))
+    # Resolve the product reference exactly the same way as the product page.
+    # This prevents numeric IDs from being mistaken for product names.
+    if product_ref.isdigit():
+        cursor.execute("SELECT id FROM products WHERE id = ?", (int(product_ref),))
+    else:
+        cursor.execute("SELECT id FROM products WHERE name = ?", (product_ref,))
 
     product = cursor.fetchone()
 
@@ -5610,7 +5660,7 @@ def add_review(product_name):
     conn.commit()
     conn.close()
 
-    return redirect("/product/" + product_name)
+    return redirect("/product/" + str(product["id"]))
 
 
 @app.route("/place-order", methods=["POST"])
@@ -5630,7 +5680,7 @@ def place_order():
     payment_reference = (request.form.get("payment_reference") or "").strip()
     cod_deposit_reference = (request.form.get("cod_deposit_reference") or "").strip()
     cod_deposit_receipt = request.files.get("cod_deposit_receipt")
-    delivery_provider = (request.form.get("delivery_provider") or "Standard Delivery").strip()
+    delivery_provider = (request.form.get("delivery_provider") or "Lalamove").strip()
     selected_address_id = request.form.get("selected_address")
     terms_accepted = request.form.get("terms_accepted")
     payment_receipt = request.files.get("payment_receipt")
@@ -6073,6 +6123,9 @@ def track_order():
             orders.id, orders.customer_name, orders.phone, orders.delivery_fee,
             orders.total, orders.payment_method, orders.payment_status,
             orders.payment_reference, orders.payment_receipt, orders.status,
+            orders.delivery_provider, orders.delivery_status,
+            orders.manual_courier_name, orders.manual_tracking_number, orders.manual_tracking_url,
+            orders.lalamove_order_id, orders.lalamove_status, orders.lalamove_sharelink,
             order_items.product, order_items.quantity
         FROM orders
         LEFT JOIN order_items ON orders.id = order_items.order_id
@@ -6085,6 +6138,42 @@ def track_order():
         return render_template("track_order.html", error="Order not found. Please check your order number.")
 
     return render_template("track_order.html", order=order)
+
+
+@app.route("/api/customer-order/<int:order_id>/delivery-status")
+def customer_order_delivery_status(order_id):
+    """Return delivery fields for the logged-in customer who owns the order."""
+    customer_id = session.get("customer_id")
+    if not customer_id:
+        return jsonify({"success": False, "error": "Login required."}), 401
+
+    conn = sqlite3.connect("orders.db")
+    conn.row_factory = sqlite3.Row
+    try:
+        order = conn.execute("""
+            SELECT delivery_provider, delivery_status, manual_courier_name,
+                   manual_tracking_number, manual_tracking_url,
+                   lalamove_order_id, lalamove_status, lalamove_sharelink
+            FROM orders
+            WHERE id = ? AND customer_id = ?
+        """, (order_id, customer_id)).fetchone()
+    finally:
+        conn.close()
+
+    if not order:
+        return jsonify({"success": False, "error": "Order not found."}), 404
+
+    return jsonify({
+        "success": True,
+        "delivery_provider": order["delivery_provider"],
+        "delivery_status": order["delivery_status"] or "Not Booked",
+        "manual_courier_name": order["manual_courier_name"],
+        "manual_tracking_number": order["manual_tracking_number"],
+        "manual_tracking_url": order["manual_tracking_url"],
+        "lalamove_order_id": order["lalamove_order_id"],
+        "lalamove_status": order["lalamove_status"],
+        "lalamove_sharelink": order["lalamove_sharelink"],
+    })
 
 
 @app.route("/order/<int:order_id>")
@@ -6280,12 +6369,25 @@ def add_product():
         conn = sqlite3.connect("orders.db")
         cursor = conn.cursor()
 
+        if subcategory:
+            sub_row = cursor.execute("""
+                SELECT s.name
+                FROM product_subcategories s
+                JOIN product_categories c ON c.id = s.category_id
+                WHERE LOWER(TRIM(c.name)) = LOWER(TRIM(?))
+                  AND LOWER(TRIM(s.name)) = LOWER(TRIM(?))
+                LIMIT 1
+            """, (category, subcategory)).fetchone()
+            if not sub_row:
+                conn.close()
+                return "Selected subcategory does not belong to this category.", 400
+
         cursor.execute("""
             INSERT INTO products
-            (name, category, base_price, markup, stock, description, image, images, weight_kg, length_cm, width_cm, height_cm, brand, model, compatible_models, product_type, condition, print_speed, paper_size, connectivity)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (name, category, subcategory, base_price, markup, stock, description, image, images, weight_kg, length_cm, width_cm, height_cm, brand, model, compatible_models, product_type, condition, print_speed, paper_size, connectivity)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            name, category, base_price, markup, stock, description,
+            name, category, subcategory or None, base_price, markup, stock, description,
             image_filenames[0] if image_filenames else None, images_data,
             weight_kg, length_cm, width_cm, height_cm, brand, model, compatible_models,
             product_type, condition, print_speed, paper_size, connectivity
@@ -6351,7 +6453,7 @@ def admin_products():
     categories = cursor.fetchall()
 
     cursor.execute("""
-        SELECT id, category_id, category, name
+        SELECT id, category_id, name
         FROM product_subcategories
         ORDER BY id ASC
     """)
@@ -6383,9 +6485,14 @@ def edit_product(product_id):
 
     if request.method == "POST":
 
-        name = request.form["name"]
-        category = request.form["category"]
-        base_price = float(request.form["base_price"])
+        name = (request.form.get("name") or "").strip()[:160]
+        category = (request.form.get("category") or "").strip()[:120]
+        subcategory = (request.form.get("subcategory") or "").strip()[:120]
+        try:
+            base_price = float(request.form.get("base_price", ""))
+        except (TypeError, ValueError):
+            conn.close()
+            return "Please enter a valid price.", 400
         markup = 0.0
         stock = int(request.form.get("stock", 0))
         description = request.form.get("description", "").strip()[:5000]
@@ -6403,10 +6510,24 @@ def edit_product(product_id):
             conn.close()
             return str(exc), 400
 
+        if subcategory:
+            sub_row = cursor.execute("""
+                SELECT s.name
+                FROM product_subcategories s
+                JOIN product_categories c ON c.id = s.category_id
+                WHERE LOWER(TRIM(c.name)) = LOWER(TRIM(?))
+                  AND LOWER(TRIM(s.name)) = LOWER(TRIM(?))
+                LIMIT 1
+            """, (category, subcategory)).fetchone()
+            if not sub_row:
+                conn.close()
+                return "Selected subcategory does not belong to this category.", 400
+
         cursor.execute("""
             UPDATE products
             SET name = ?,
                 category = ?,
+                subcategory = ?,
                 base_price = ?,
                 markup = ?,
                 stock = ?,
@@ -6427,6 +6548,7 @@ def edit_product(product_id):
         """, (
             name,
             category,
+            subcategory or None,
             base_price,
             markup,
             stock,
@@ -6457,14 +6579,22 @@ def edit_product(product_id):
     conn = sqlite3.connect("orders.db")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    cursor.execute("SELECT name, icon FROM product_categories ORDER BY id ASC")
+    cursor.execute("SELECT id, name, icon FROM product_categories ORDER BY id ASC")
     categories = cursor.fetchall()
+    cursor.execute("""
+        SELECT s.id, s.category_id, s.name, c.name AS category_name
+        FROM product_subcategories s
+        JOIN product_categories c ON c.id = s.category_id
+        ORDER BY c.id ASC, s.id ASC
+    """)
+    subcategories = [dict(row) for row in cursor.fetchall()]
     conn.close()
 
     return render_template(
         "edit_product.html",
         product=product,
-        categories=categories
+        categories=categories,
+        subcategories=subcategories
     )
 
 @app.route("/admin/products/delete/<int:product_id>", methods=["POST"])

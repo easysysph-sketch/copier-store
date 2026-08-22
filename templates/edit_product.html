@@ -321,6 +321,14 @@
 
 
                 <div class="field">
+                    <label>Subcategory <span style="font-weight:500;color:#64748b;">(optional)</span></label>
+                    <select name="subcategory" id="productSubcategory">
+                        <option value="">No subcategory / General</option>
+                    </select>
+                </div>
+
+
+                <div class="field">
 
                     <label>
                         Base Price
@@ -479,6 +487,35 @@
         calculatePrice();
 
     </script>
+
+<script>
+const editSubcategories = {{ subcategories|tojson }};
+const editCategory = document.querySelector('select[name="category"]');
+const editSubcategory = document.getElementById('productSubcategory');
+const existingSubcategory = {{ (product.subcategory or '')|tojson }};
+
+function refreshEditSubcategories() {
+    if (!editCategory || !editSubcategory) return;
+    const category = editCategory.value;
+    const matches = editSubcategories.filter(item =>
+        String(item.category_name || '').trim().toLowerCase() === category.trim().toLowerCase()
+    );
+    editSubcategory.innerHTML = '';
+    const general = document.createElement('option');
+    general.value = '';
+    general.textContent = matches.length ? 'No subcategory / General' : 'No subcategories available';
+    editSubcategory.appendChild(general);
+    matches.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.name;
+        option.textContent = item.name;
+        if (String(item.name).trim().toLowerCase() === String(existingSubcategory).trim().toLowerCase()) option.selected = true;
+        editSubcategory.appendChild(option);
+    });
+}
+editCategory?.addEventListener('change', refreshEditSubcategories);
+refreshEditSubcategories();
+</script>
 
 </body>
 

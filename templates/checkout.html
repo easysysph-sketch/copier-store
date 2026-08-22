@@ -924,7 +924,7 @@
                             <label>Delivery Method <span class="required">*</span></label>
                             <div class="delivery-methods">
                                 <label class="delivery-method">
-                                    <input type="radio" name="delivery_method_ui" value="Lalamove" checked onchange="setDeliveryProvider('Lalamove')">
+                                    <input type="radio" name="delivery_method_ui" value="Lalamove" onchange="setDeliveryProvider('Lalamove')">
                                     <div class="delivery-method-copy">
                                         <strong>🛵 Lalamove</strong>
                                         <small>Live quotation using your exact map pin</small>
@@ -1367,7 +1367,7 @@
         async function calculateCheckoutDelivery(address, location, selectedAddressId = "") {
 
             const distanceInfo = document.getElementById("deliveryDistance");
-            const provider = document.getElementById("deliveryProvider")?.value || "Standard Delivery";
+            const provider = document.getElementById("deliveryProvider")?.value || "Lalamove";
 
             if (provider === "Lalamove") {
                 return getLalamoveQuote();

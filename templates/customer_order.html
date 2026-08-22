@@ -932,7 +932,11 @@ async function refreshLalamoveCustomer(){
 }
 refreshLalamoveCustomer();
 setInterval(refreshLalamoveCustomer,30000);
+</script>
+{% endif %}
+
 {% if order.delivery_provider == 'Manual Courier' %}
+<script>
 async function refreshManualCourierStatus(){
     try {
         const r = await fetch('/api/customer-order/{{ order.id }}/delivery-status', {headers:{'Accept':'application/json'}});
@@ -951,8 +955,7 @@ async function refreshManualCourierStatus(){
     } catch(e) { console.debug('Manual courier status refresh failed',e); }
 }
 refreshManualCourierStatus();
-setInterval(refreshManualCourierStatus, 15000);
-{% endif %}
+setInterval(refreshManualCourierStatus,15000);
 </script>
 {% endif %}
 

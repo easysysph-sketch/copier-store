@@ -1115,10 +1115,11 @@
     {% if recently_viewed %}
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;">
         {% for product in recently_viewed %}
-        <a href="/product/{{ product.name }}" style="text-decoration:none;color:inherit;border:1px solid #e5e7eb;border-radius:12px;padding:12px;background:#fff;">
+        <a href="/product/{{ product.id }}" style="text-decoration:none;color:inherit;border:1px solid #e5e7eb;border-radius:12px;padding:12px;background:#fff;">
             <div style="height:110px;background:#f8fafc;border-radius:9px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
                 {% if product.image %}
-                <img src="{{ url_for('static', filename='uploads/' + product.image) }}" alt="{{ product.name }}" style="width:100%;height:100%;object-fit:contain;">
+                <img src="{{ url_for('static', filename='uploads/' + product.image) }}" alt="{{ product.name }}" style="width:100%;height:100%;object-fit:contain;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                <span style="display:none;font-size:32px;">🖨️</span>
                 {% else %}
                 <span style="font-size:32px;">🖨️</span>
                 {% endif %}

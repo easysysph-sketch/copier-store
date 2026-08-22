@@ -1235,7 +1235,7 @@
 
                 {% for category in categories %}
                     <button type="button"
-                            onclick="selectStoreCategory('{{ category.name|e }}', this)"
+                            onclick='selectStoreCategory({{ category.name|tojson }}, this)'
                             class="category-btn">
                         {{ category.icon or '📦' }} {{ category.name }}
                     </button>
@@ -1248,21 +1248,11 @@
                     <span style="font-size:12px;color:var(--muted);">Select a category above to see its subcategories.</span>
                 </div>
                 {% for category in categories %}
-                    <div id="subcategories-{{ category.name }}"
-                        class="store-subcategories">
-                        <button type="button"
-                            class="store-subcategory-btn"
-                            onclick="selectSubcategory('{{ category.name|e }}','all',this)"></button>
-                        All
-                        </button>
+                    <div id="subcategories-{{ category.name }}" class="store-subcategories">
+                        <button type="button" class="store-subcategory-btn" onclick='selectSubcategory({{ category.name|tojson }}, "all", this)'>All</button>
                         {% for subcategory in subcategories %}
                             {% if subcategory.category_id == category.id %}
-                                <button 
-                                    type="button"
-                                    class="store-subcategory-btn"
-                                    onclick="selectSubcategory('{{ category.name|e }}','{{ subcategory.name|e }}',this)">
-                                  {{ subcategory.name }}
-                                </button>
+                                <button type="button" class="store-subcategory-btn" onclick='selectSubcategory({{ category.name|tojson }}, {{ subcategory.name|tojson }}, this)'>{{ subcategory.name }}</button>
                             {% endif %}
                         {% endfor %}
                     </div>
@@ -1282,6 +1272,8 @@
                 data-brand="{{ (product.brand or '')|e }}"
                 data-model="{{ (product.model or '')|e }}"
                 data-compatible="{{ (product.compatible_models or '')|e }}"
+                data-subcategory="{{ (product.subcategory or '')|e }}"
+                data-product-type="{{ (product.product_type or '')|e }}"
             >
 
                 <div class="product-media">
@@ -1294,7 +1286,9 @@
                             <img
                                 src="{{ url_for('static', filename='uploads/' + first_image) }}"
                                 alt="{{ product.name }}"
+                                onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';"
                             >
+                            <div class="product-icon image-fallback" style="display:none;">{% if 'toner' in (product.name|lower) %}🖨️{% elif 'printer' in (product.category|lower) %}🖨️{% elif 'paper' in (product.name|lower) %}📄{% else %}⚙️{% endif %}</div>
                         {% endif %}
 
                     {% elif product.image %}
@@ -1302,7 +1296,9 @@
                         <img
                             src="{{ url_for('static', filename='uploads/' + product.image) }}"
                             alt="{{ product.name }}"
+                            onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';"
                         >
+                        <div class="product-icon image-fallback" style="display:none;">{% if 'toner' in (product.name|lower) %}🖨️{% elif 'printer' in (product.category|lower) %}🖨️{% elif 'paper' in (product.name|lower) %}📄{% else %}⚙️{% endif %}</div>
 
                     {% else %}
 
@@ -1341,7 +1337,7 @@
                 <h3>
 
                     <a
-                        href="/product/{{ product.name }}"
+                        href="/product/{{ product.id }}"
                         class="product-link"
                     >
                         {{ product.name }}
@@ -1386,6 +1382,7 @@
 
                 <div class="product-actions">
 
+                    {% if customer %}
                     <form
                         action="/add-to-cart"
                         method="POST"
@@ -1418,7 +1415,13 @@
                         </button>
 
                     </form>
+                    {% else %}
+                    <a href="/customer-login" class="add-cart" style="display:flex;align-items:center;justify-content:center;text-decoration:none;">
+                        🔐 Login to Purchase
+                    </a>
+                    {% endif %}
 
+                    {% if customer %}
                     <form
                         action="/buy-now"
                         method="POST"
@@ -1451,6 +1454,7 @@
                         </button>
 
                     </form>
+                    {% endif %}
 
                 </div>
 
@@ -1538,6 +1542,16 @@
                 headers: { "X-Requested-With": "XMLHttpRequest", "Accept": "text/html,application/json" }
             });
 
+            // An unauthenticated AJAX request must never be treated as a successful
+            // cart/wishlist action. The backend returns 401 with login_required.
+            if (response.status === 401) {
+                let data = {};
+                try { data = await response.json(); } catch (_) {}
+                if (data.login_required) {
+                    window.location.href = "/customer-login";
+                    return;
+                }
+            }
             if (!response.ok) throw new Error("Request failed");
 
             showStoreToast(isCart ? "🛒 Added to cart!" : "♡ Added to wishlist!");
@@ -1640,14 +1654,35 @@
             const selectedBrands = Array.from(document.querySelectorAll('.brand-check input:checked')).map(input => input.value);
             const matchesBrand = !selectedBrands.length || selectedBrands.some(selected => haystack.includes(selected));
 
-            const allowedCategories = storeCategoryMap[selectedCategory] || [];
+            const allowedCategories = storeCategoryMap[selectedCategory] || [selectedCategory];
+            const normalizedCardCategory = category.trim().replace(/\s+/g, " ");
             const matchesCategory =
                 selectedCategory === "all" ||
-                allowedCategories.includes(card.dataset.category);
+                allowedCategories.some(value => normalizedCardCategory === String(value).toLowerCase().trim().replace(/\s+/g, " "));
 
-            const matchesSubcategory =
-                selectedSubcategory === "all" ||
-                cardText.includes(selectedSubcategory.toLowerCase());
+            const productSubcategory = (card.dataset.subcategory || "").toLowerCase().trim();
+            const productType = (card.dataset.productType || "").toLowerCase().trim();
+            const selectedSub = selectedSubcategory.toLowerCase().trim();
+            let matchesSubcategory = selectedSubcategory === "all";
+            if (!matchesSubcategory) {
+                matchesSubcategory = productSubcategory === selectedSub || productSubcategory.includes(selectedSub);
+                if (!matchesSubcategory) {
+                    // Older products may predate the subcategory column. Use
+                    // conservative legacy heuristics so existing toner/part
+                    // listings remain browsable until an admin categorizes them.
+                    if (selectedSub.includes("reset chip") || selectedSub.includes("toner chip")) {
+                        matchesSubcategory = /\b(chip|reset)\b/.test(haystack);
+                    } else if (selectedSub.includes("drum blade") || selectedSub.includes("cleaning blade")) {
+                        matchesSubcategory = /\b(doctor blade|drum blade|wiper blade|cleaning blade)\b/.test(haystack);
+                    } else if (selectedSub.includes("toner powder")) {
+                        matchesSubcategory = /\btoner\b/.test(haystack) && !/\b(chip|reset|blade)\b/.test(haystack);
+                    } else if (selectedSub.includes("cartridge")) {
+                        matchesSubcategory = /\b(cartridge|cartridges)\b/.test(haystack) && /\b(toner|ink)\b/.test(haystack);
+                    } else {
+                        matchesSubcategory = cardText.includes(selectedSub) || productType === selectedSub;
+                    }
+                }
+            }
 
             let matchesPrice = true;
 
