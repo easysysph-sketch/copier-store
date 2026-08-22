@@ -1794,7 +1794,27 @@ def chat_conversations_api():
         row=cur.fetchone()
         if row: conv_id=row['id']
         else:
-            cur.execute("INSERT INTO chat_conversations(customer_id,order_id) VALUES (?,?)",(requested_customer,order_id)); conv_id=cur.lastrowid; conn.commit()
+            cur.execute("INSERT INTO chat_conversations(customer_id,order_id) VALUES (?,?)",(requested_customer,order_id))
+            conv_id=cur.lastrowid
+            try:
+                conn.commit()
+            except Exception as exc:
+                # A Turso HRANA stream can disappear between INSERT and COMMIT.
+                # The INSERT belongs to the dead stream, so reconnect and check
+                # whether another request already created the conversation before
+                # retrying the INSERT on a fresh connection.
+                if "stream not found" not in str(exc).lower():
+                    raise
+                conn.close()
+                conn=sqlite3.connect(DATABASE_PATH); conn.row_factory=sqlite3.Row; cur=conn.cursor()
+                cur.execute("SELECT id FROM chat_conversations WHERE customer_id=? AND ((order_id IS NULL AND ? IS NULL) OR order_id=?) AND status='open' ORDER BY id DESC LIMIT 1",(requested_customer,order_id,order_id))
+                existing=cur.fetchone()
+                if existing:
+                    conv_id=existing['id']
+                else:
+                    cur.execute("INSERT INTO chat_conversations(customer_id,order_id) VALUES (?,?)",(requested_customer,order_id))
+                    conv_id=cur.lastrowid
+                    conn.commit()
         conn.close(); return jsonify({"success":True,"conversation_id":conv_id})
     if is_admin:
         cur.execute("""SELECT c.id,c.customer_id,c.order_id,c.status,c.updated_at,cu.name customer_name,cu.email customer_email,(SELECT COUNT(*) FROM chat_messages m WHERE m.conversation_id=c.id AND m.sender_type='customer' AND m.is_read=0) unread,(SELECT message FROM chat_messages m WHERE m.conversation_id=c.id ORDER BY m.id DESC LIMIT 1) last_message FROM chat_conversations c JOIN customers cu ON cu.id=c.customer_id ORDER BY c.updated_at DESC""")
@@ -1919,8 +1939,19 @@ def chat_messages_api():
         cur.execute("SELECT id,conversation_id,customer_id,order_id,sender_type,message,is_read,created_at FROM chat_messages WHERE conversation_id=? AND id>? ORDER BY id ASC LIMIT 100",(conv_id,after))
         messages=[dict(r) for r in cur.fetchall()]
         recipient='customer' if is_admin else 'admin'
-        cur.execute("UPDATE chat_messages SET is_read=1 WHERE conversation_id=? AND sender_type=? AND is_read=0",(conv_id,recipient))
-        conn.commit()
+        try:
+            cur.execute("UPDATE chat_messages SET is_read=1 WHERE conversation_id=? AND sender_type=? AND is_read=0",(conv_id,recipient))
+            conn.commit()
+        except Exception as read_exc:
+            # Read receipts are secondary. Never make message polling fail because
+            # a Turso stream expired while marking messages as read.
+            if "stream not found" not in str(read_exc).lower():
+                raise
+            try:
+                conn.close()
+            except Exception:
+                pass
+            conn=sqlite3.connect(DATABASE_PATH); conn.row_factory=sqlite3.Row; cur=conn.cursor()
         cur.execute("SELECT COUNT(*) FROM chat_messages WHERE sender_type=? AND is_read=0" , ('customer' if is_admin else 'admin',))
         unread_total=cur.fetchone()[0]
         cur.execute("SELECT c.*,cu.name customer_name,cu.email customer_email FROM chat_conversations c JOIN customers cu ON cu.id=c.customer_id WHERE c.id=?",(conv_id,)); conv_row=cur.fetchone()
@@ -2007,7 +2038,26 @@ def chat_send_api():
         # Commit the actual message before the non-essential conversation timestamp
         # and notification bookkeeping. This guarantees that a stale Turso stream
         # during secondary bookkeeping can never make the user's message vanish.
-        conn.commit()
+        try:
+            conn.commit()
+        except Exception as exc:
+            # If the first commit lost its Turso stream, reconnect and determine
+            # whether the message actually reached the database. If it did not,
+            # replay the message transaction exactly once.
+            if "stream not found" not in str(exc).lower():
+                raise
+            sender = "admin" if is_admin else "customer"
+            conn.close()
+            conn=sqlite3.connect(DATABASE_PATH); conn.row_factory=sqlite3.Row; cur=conn.cursor()
+            cur.execute("SELECT id,conversation_id FROM chat_messages WHERE conversation_id=? AND customer_id=? AND sender_type=? AND message=? ORDER BY id DESC LIMIT 1",(conv_id,customer_id,sender,message))
+            existing_msg=cur.fetchone()
+            if existing_msg:
+                msg_id=existing_msg['id']
+                conv_id=existing_msg['conversation_id']
+            else:
+                cur.execute("INSERT INTO chat_messages (customer_id,sender_type,message,is_read,conversation_id,order_id) VALUES (?,?,?,?,?,?)",(customer_id,sender,message,0,conv_id,order_id))
+                msg_id=cur.lastrowid
+                conn.commit()
         try:
             cur.execute(
                 "UPDATE chat_conversations SET updated_at=CURRENT_TIMESTAMP WHERE id=?",
