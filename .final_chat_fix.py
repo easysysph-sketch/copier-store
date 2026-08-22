@@ -1,4 +1,4 @@
-# FINAL CHAT FIX TRIGGER
+# FINAL CHAT FIX TRIGGER v2
 from pathlib import Path
 
 ROOT=Path('.')
