@@ -5931,7 +5931,7 @@ def place_order():
                 return "Invalid product in your cart.", 400
 
             product_row = conn.execute("""
-                SELECT name, stock, base_price, markup
+                SELECT id, name, stock, base_price, markup
                 FROM products
                 WHERE name = ?
             """, (product_name,)).fetchone()
@@ -5951,6 +5951,7 @@ def place_order():
                 return f"{product_name} does not have a valid price.", 400
 
             normalized_cart.append({
+                "product_id": int(product_row["id"]),
                 "product": product_name,
                 "price": price,
                 "quantity": quantity,
@@ -6060,15 +6061,43 @@ def place_order():
                 item["price"] * item["quantity"],
             ))
 
-        # Atomic stock deduction. If any item changed since the initial check,
-        # roll the whole order back rather than creating a partial order.
+        # Atomic stock deduction. Use the product ID instead of the product name
+        # and verify the resulting stock value rather than relying on cursor.rowcount.
+        # The libsql/Turso cursor can report rowcount=-1 even when an UPDATE
+        # succeeded, which previously made valid checkouts fail with a false
+        # "available stock changed" message.
         for item in normalized_cart:
+            product_id = item["product_id"]
+            quantity = item["quantity"]
+            before_row = cursor.execute(
+                "SELECT stock FROM products WHERE id = ?",
+                (product_id,)
+            ).fetchone()
+            if not before_row:
+                conn.rollback()
+                return f"Product '{item['product']}' is no longer available.", 409
+
+            before_stock = int(before_row[0] or 0)
+            if before_stock < quantity:
+                conn.rollback()
+                return (
+                    f"Not enough stock for {item['product']}. "
+                    f"Only {before_stock} available.",
+                    409,
+                )
+
             cursor.execute("""
                 UPDATE products
                 SET stock = stock - ?
-                WHERE name = ? AND stock >= ?
-            """, (item["quantity"], item["product"], item["quantity"]))
-            if cursor.rowcount != 1:
+                WHERE id = ? AND stock >= ?
+            """, (quantity, product_id, quantity))
+
+            after_row = cursor.execute(
+                "SELECT stock FROM products WHERE id = ?",
+                (product_id,)
+            ).fetchone()
+            expected_stock = before_stock - quantity
+            if not after_row or int(after_row[0] or 0) != expected_stock:
                 conn.rollback()
                 return (
                     f"Not enough stock for {item['product']}. "
