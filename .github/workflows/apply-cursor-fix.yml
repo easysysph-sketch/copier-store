@@ -1,9 +1,10 @@
-name: Apply Turso cursor fix
+name: Apply final CopierStore chat fix
 
 on:
   push:
     paths:
-      - .fix_cursor_reconnect.py
+      - .final_chat_fix.py
+      - .github/workflows/apply-cursor-fix.yml
 
 permissions:
   contents: write
@@ -14,15 +15,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Apply patch
-        run: python .fix_cursor_reconnect.py
-      - name: Validate
+      - name: Apply final chat architecture
+        run: python .final_chat_fix.py
+      - name: Validate Python
         run: python -m py_compile app.py
-      - name: Commit patch and remove helpers
+      - name: Validate chat templates
+        run: python - <<'PY'
+          from pathlib import Path
+          for p in [Path('templates/admin_messages.html'), Path('templates/live_chat.html')]:
+              s=p.read_text(encoding='utf-8')
+              assert '/api/chat/messages' in s and '/api/chat/send' in s
+          print('chat templates OK')
+          PY
+      - name: Commit final build and remove helpers
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app.py
-          git rm .fix_cursor_reconnect.py .github/workflows/apply-cursor-fix.yml
-          git commit -m "Fix Turso stale cursor retry"
+          git add app.py templates/admin_messages.html templates/live_chat.html Procfile
+          git rm .final_chat_fix.py .github/workflows/apply-cursor-fix.yml
+          git commit -m "Finalize fast reliable live chat"
           git push origin HEAD:main
