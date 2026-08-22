@@ -49,13 +49,13 @@ async function load(reset=false){
 }
 document.getElementById('composer').addEventListener('submit',async e=>{
   e.preventDefault();if(!conversationId)return;const text=input.value.trim();if(!text)return;send.disabled=true;input.disabled=true;
-  try{const fd=new FormData();fd.append('conversation_id',String(conversationId));fd.append('message',text);const {r,d}=await api('/api/chat/send',{method:'POST',body:fd},8000);
+  try{const fd=new FormData();fd.append('conversation_id',String(conversationId));fd.append('message',text);const {r,d}=await api('/api/chat/send',{method:'POST',body:fd},12000);
     if(!r.ok||!d.success){alert(d.error||'Message could not be sent.');return}input.value='';const id=Number(d.message_id)||(++lastId);lastId=Math.max(lastId,id);appendMessage({id,sender_type:'admin',message:text,created_at:new Date().toLocaleString()});conversations();
   }catch(err){console.error(err);alert(err.name==='AbortError'?'Message request timed out. Please try again.':'Could not send message.')}
   finally{input.disabled=false;send.disabled=false;input.focus();}
 });
 document.getElementById('startBtn').onclick=async()=>{const customer=document.getElementById('customerSelect').value;if(!customer){alert('Choose a customer first.');return}const order=document.getElementById('newOrderSelect').value||null;
-  const {r,d}=await api('/api/chat/conversations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customer_id:Number(customer),order_id:order?Number(order):null})},8000);
+  const {r,d}=await api('/api/chat/conversations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customer_id:Number(customer),order_id:order?Number(order):null})},12000);
   if(!r.ok||!d.success){alert(d.error||'Could not start conversation');return}conversationId=d.conversation_id;lastId=0;await conversations();await open(conversationId);
 };
 document.getElementById('customerSelect').onchange=async()=>{

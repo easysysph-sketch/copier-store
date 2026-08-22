@@ -1825,7 +1825,6 @@ def chat_conversations_api():
 
 @app.route("/api/chat/admin/customers")
 def chat_admin_customers_api():
-    ensure_live_chat_tables()
     if not session.get("admin_logged_in"):
         return jsonify({"success": False, "error": "Admin login required"}), 401
     conn = sqlite3.connect(DATABASE_PATH)
@@ -1838,7 +1837,6 @@ def chat_admin_customers_api():
 
 @app.route("/api/chat/admin/orders")
 def chat_admin_orders_api():
-    ensure_live_chat_tables()
     if not session.get("admin_logged_in"):
         return jsonify({"success": False, "error": "Admin login required"}), 401
     customer_id = request.args.get("customer_id", type=int)
@@ -1866,7 +1864,6 @@ def chat_admin_orders_api():
 
 @app.route("/api/chat/link-order", methods=["POST"])
 def chat_link_order_api():
-    ensure_live_chat_tables()
     if not session.get("admin_logged_in"):
         return jsonify({"success": False, "error": "Admin login required"}), 401
     data = request.get_json(silent=True) or {}
@@ -1953,7 +1950,6 @@ def chat_messages_api():
                     raise
         # Global unread totals are maintained by the conversation-list endpoint.
         unread_total = 0
-        unread_total=cur.fetchone()[0]
         conv_row = conv
         if not conv_row: return jsonify({"success":False,"error":"Conversation no longer exists"}),404
         conv=dict(conv_row)
@@ -2034,8 +2030,8 @@ def chat_send_api():
             (customer_id, sender, message, 0, conv_id, order_id),
         )
         msg_id = cur.lastrowid
-        # Keep the message insert and conversation timestamp in ONE transaction.
-        cur.execute("UPDATE chat_conversations SET updated_at=CURRENT_TIMESTAMP WHERE id=?", (conv_id,))
+        # The send path is intentionally minimal: one INSERT and one COMMIT.
+        # Conversation timestamps and notifications must never block delivery.
         try:
             conn.commit()
         except Exception as exc:
@@ -2052,33 +2048,10 @@ def chat_send_api():
             else:
                 cur.execute("INSERT INTO chat_messages (customer_id,sender_type,message,is_read,conversation_id,order_id) VALUES (?,?,?,?,?,?)",(customer_id,sender,message,0,conv_id,order_id))
                 msg_id=cur.lastrowid
-                cur.execute("UPDATE chat_conversations SET updated_at=CURRENT_TIMESTAMP WHERE id=?", (conv_id,))
                 conn.commit()
 
-        # Notifications are secondary. A notification schema/plugin mismatch must
-        # NEVER make an otherwise valid chat message fail to send.
-        try:
-            if sender == "customer":
-                cur.execute(
-                    "INSERT INTO admin_notifications(notification_type,message,order_id) VALUES (?,?,?)",
-                    ("message", f"💬 New customer message from Customer #{customer_id}.", order_id),
-                )
-            else:
-                cur.execute(
-                    "INSERT INTO notifications(customer_id,message) VALUES (?,?)",
-                    (customer_id, "💬 You have a new message from CopierStore support."),
-                )
-        except Exception:
-            # Keep the chat message; notification can be repaired independently.
-            # Do not retry/commit here: the actual chat message was already
-            # committed above, and this request must not depend on a second Turso
-            # write stream.
-            pass
-
-        # IMPORTANT: do not commit again here. The message transaction was already
-        # committed before notifications/timestamp bookkeeping. A second commit
-        # is exactly what was producing Hrana `stream not found` errors after the
-        # user had successfully sent a message.
+        # No notification-table write is performed in the send request.
+        # The chat conversation list derives unread state directly from chat_messages.
         return jsonify({"success": True, "conversation_id": conv_id, "message_id": msg_id})
     except sqlite3.Error as exc:
         conn.rollback()

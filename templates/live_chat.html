@@ -92,7 +92,7 @@ async function loadMessages(reset=false){
 }
 document.getElementById('newChatBtn').onclick=async()=>{
   const fd={order_id:document.getElementById('orderSelect').value||null};
-  const {r,d}=await api('/api/chat/conversations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(fd)},8000);
+  const {r,d}=await api('/api/chat/conversations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(fd)},12000);
   if(!r.ok||!d.success){alert(d.error||'Could not start conversation');return}
   await loadConversations();await openConversation(d.conversation_id);
 };
@@ -101,7 +101,7 @@ document.getElementById('composer').onsubmit=async e=>{
   input.disabled=true;send.disabled=true;
   const fd=new FormData();fd.append('conversation_id',String(conversationId));fd.append('message',text);
   try{
-    const {r,d}=await api('/api/chat/send',{method:'POST',body:fd},8000);
+    const {r,d}=await api('/api/chat/send',{method:'POST',body:fd},12000);
     if(!r.ok||!d.success){alert(d.error||'Message could not be sent.');return}
     input.value='';
     const id=Number(d.message_id)||(++lastId);
