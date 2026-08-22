@@ -950,7 +950,14 @@
             }
 
             .account-link {
-                display: none !important;
+                display: inline-flex !important;
+                align-items: center;
+                justify-content: center;
+                max-width: 112px;
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+                border: 1px solid var(--line);
             }
 
             .container {
