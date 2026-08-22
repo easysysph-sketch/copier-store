@@ -21,14 +21,17 @@ except ImportError:
 def _register_turso_connection(connection):
     if not has_app_context():
         return
-    connections = g.setdefault("_turso_connections", [])
+    connections = getattr(g, "_turso_connections", None)
+    if connections is None:
+        connections = []
+        g._turso_connections = connections
     connections.append(connection)
 
 
 def _unregister_turso_connection(connection):
     if not has_app_context():
         return
-    connections = g.get("_turso_connections")
+    connections = getattr(g, "_turso_connections", None)
     if not connections:
         return
     try:
@@ -40,10 +43,10 @@ def _unregister_turso_connection(connection):
 def _close_turso_connections():
     if not has_app_context():
         return
-    connections = list(g.get("_turso_connections", ()))
+    connections = list(getattr(g, "_turso_connections", ()))
     # Clear the request-local collection first so close() cannot mutate the
     # list while it is being iterated. close() itself is idempotent below.
-    g["_turso_connections"] = []
+    g_turso_connections = []
     for connection in connections:
         try:
             connection.close()
