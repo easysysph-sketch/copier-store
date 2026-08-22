@@ -65,8 +65,8 @@ document.getElementById('customerSelect').onchange=async()=>{
   catch(e){if(e.name!=='AbortError')console.error(e)}finally{orderRequest=null}
 };
 conversations();populateCustomers();
-setInterval(conversations,5000);
-setInterval(populateCustomers,30000);
-setInterval(()=>load(false),1500);
+setInterval(conversations,7000);
+setInterval(populateCustomers,60000);
+setInterval(()=>load(false),2500);
 
 </script></body></html>
