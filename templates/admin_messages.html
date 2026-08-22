@@ -6,34 +6,67 @@
 <main class="layout"><section class="panel"><div class="panel-head">💬 Customer conversations <span class="badge" id="adminBadge" {% if not admin_unread %}style="display:none"{% endif %}>{{ admin_unread }}</span></div><div id="conversationList" class="conversation-list"></div><div class="new-conversation"><strong style="font-size:11px">Start a new conversation</strong><select id="customerSelect"><option value="">Choose customer…</option></select><select id="newOrderSelect"><option value="">General support</option></select><button id="startBtn">💬 Message Customer</button></div></section>
 <section class="panel chat-panel"><div class="chat-head"><div><strong id="chatTitle">Select a conversation</strong><div id="context" class="context">Admin can start the conversation or reply to the customer.</div></div></div><div class="order-select"><select id="linkOrder"><option value="">No order link</option></select><button id="linkBtn">Link Order</button></div><div id="messages" class="messages"><div class="empty">Select a conversation.</div></div><form id="composer" class="composer"><input id="message" maxlength="1000" placeholder="Message customer…" disabled><button id="send" disabled>Send</button></form></section></main>
 <script>
-let conversationId=null,lastId=0,loading=false;const list=document.getElementById('conversationList'),box=document.getElementById('messages'),input=document.getElementById('message'),send=document.getElementById('send');
-function render(rows){list.innerHTML='';if(!rows.length){list.innerHTML='<div class="empty">No conversations yet.</div>';return}rows.forEach(c=>{const b=document.createElement('button');b.className='conversation '+(Number(c.id)===Number(conversationId)?'active':'');b.type='button';b.dataset.id=c.id;b.innerHTML='<strong></strong><small></small>';b.querySelector('strong').textContent=(c.customer_name||'Customer')+(c.order_id?' · #'+c.order_id:'')+(c.unread?'  • '+c.unread+' new':'');b.querySelector('small').textContent=c.last_message||'No messages yet';b.onclick=()=>open(c.id);list.appendChild(b)})}
-async function conversations(){const r=await fetch('/api/chat/conversations',{credentials:'same-origin'});const d=await r.json();if(!d.success)return;render(d.conversations);const b=document.getElementById('adminBadge');b.textContent=d.unread_total||0;b.style.display=d.unread_total?'inline-block':'none';populateCustomers(d.conversations)}
-async function populateCustomers(){const sel=document.getElementById('customerSelect');const old=sel.value;try{const r=await fetch('/api/chat/admin/customers',{credentials:'same-origin'});const d=await r.json();if(!r.ok||!d.success)return;sel.innerHTML='<option value="">Choose customer…</option>';(d.customers||[]).forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=(c.name||'Customer')+(c.email?' · '+c.email:'');sel.appendChild(o)});if(old)sel.value=old}catch(e){console.error(e)}}
-async function open(id){conversationId=id;lastId=0;box.innerHTML='';input.disabled=false;send.disabled=false;await load(true);renderActive()}
+
+let conversationId=null,lastId=0,messageRequest=null,conversationRequest=null,customerRequest=null,orderRequest=null;
+const list=document.getElementById('conversationList'),box=document.getElementById('messages'),input=document.getElementById('message'),send=document.getElementById('send');
+async function api(url,options={},timeout=7000){
+  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),timeout);
+  try{
+    const r=await fetch(url,{credentials:'same-origin',cache:'no-store',...options,signal:controller.signal});
+    const d=await r.json().catch(()=>({success:false,error:'Invalid server response'}));return {r,d};
+  }finally{clearTimeout(timer);}
+}
+function render(rows){
+  list.innerHTML='';if(!rows.length){list.innerHTML='<div class="empty">No conversations yet.</div>';return}
+  rows.forEach(c=>{const b=document.createElement('button');b.className='conversation '+(Number(c.id)===Number(conversationId)?'active':'');b.type='button';b.dataset.id=c.id;b.innerHTML='<strong></strong><small></small>';
+    b.querySelector('strong').textContent=(c.customer_name||'Customer')+(c.order_id?' · #'+c.order_id:'')+(c.unread?'  • '+c.unread+' new':'');
+    b.querySelector('small').textContent=c.last_message||'No messages yet';b.onclick=()=>open(c.id);list.appendChild(b);});
+}
+async function conversations(){
+  if(conversationRequest)return;conversationRequest=api('/api/chat/conversations');
+  try{const {r,d}=await conversationRequest;if(!r.ok||!d.success)return;render(d.conversations||[]);const b=document.getElementById('adminBadge');b.textContent=d.unread_total||0;b.style.display=d.unread_total?'inline-block':'none';}
+  catch(e){if(e.name!=='AbortError')console.error('conversation poll',e)}finally{conversationRequest=null}
+}
+async function populateCustomers(){
+  if(customerRequest)return;customerRequest=api('/api/chat/admin/customers',{},7000);
+  try{const {r,d}=await customerRequest;if(!r.ok||!d.success)return;const sel=document.getElementById('customerSelect');const old=sel.value;sel.innerHTML='<option value="">Choose customer…</option>';
+    (d.customers||[]).forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=(c.name||'Customer')+(c.email?' · '+c.email:'');sel.appendChild(o)});if(old)sel.value=old;
+  }catch(e){if(e.name!=='AbortError')console.error('customer poll',e)}finally{customerRequest=null}
+}
+async function open(id){conversationId=Number(id);lastId=0;box.innerHTML='';input.disabled=false;send.disabled=false;await load(true);renderActive()}
 function renderActive(){document.querySelectorAll('.conversation').forEach(x=>x.classList.toggle('active',Number(x.dataset.id)===Number(conversationId)))}
-async function load(reset=false){if(!conversationId||loading)return;loading=true;try{const r=await fetch('/api/chat/messages?conversation_id='+conversationId+'&after_id='+lastId,{credentials:'same-origin'});const d=await r.json();if(!d.success)return;const c=d.conversation;document.getElementById('chatTitle').textContent=(c.customer_name||'Customer')+(c.order_id?' · Order #'+c.order_id:'');document.getElementById('context').textContent=(c.customer_email||'')+' · Conversation #'+c.id;const sel=document.getElementById('linkOrder');if(reset){sel.innerHTML='<option value="">No order link</option>';if(c.order_id)sel.value=c.order_id}d.messages.forEach(m=>{lastId=Math.max(lastId,m.id);const row=document.createElement('div');row.className='row '+m.sender_type;const bub=document.createElement('div');bub.className='bubble';bub.textContent=m.message;const t=document.createElement('div');t.className='time';t.textContent=m.created_at;bub.appendChild(t);row.appendChild(bub);box.appendChild(row)});if(reset||d.messages.length)box.scrollTop=box.scrollHeight;await conversations();renderActive()}finally{loading=false}}
-document.getElementById('composer').addEventListener('submit',async(e)=>{
- e.preventDefault();
- if(!conversationId)return;
- const text=input.value.trim();
- if(!text)return;
- send.disabled=true; input.disabled=true;
- try{
-   const fd=new FormData();
-   fd.append('conversation_id',String(conversationId));
-   fd.append('message',text);
-   const r=await fetch('/api/chat/send',{method:'POST',body:fd,credentials:'same-origin'});
-   const d=await r.json().catch(()=>({success:false,error:'Invalid server response'}));
-   if(!r.ok||!d.success){alert(d.error||'Message could not be sent.');return;}
-   input.value='';
-   await load();
-   await conversations();
-   renderActive();
- }catch(err){console.error(err);alert('Could not send message. Check the server terminal for details.');}
- finally{input.disabled=false;send.disabled=false;input.focus();}
+function appendMessage(m,scroll=true){
+  if(!m||!m.id)return;const row=document.createElement('div');row.className='row '+m.sender_type;const bub=document.createElement('div');bub.className='bubble';bub.textContent=m.message;const t=document.createElement('div');t.className='time';t.textContent=m.created_at||new Date().toLocaleString();bub.appendChild(t);row.appendChild(bub);box.appendChild(row);if(scroll)box.scrollTop=box.scrollHeight;
+}
+async function load(reset=false){
+  if(!conversationId||messageRequest)return;messageRequest=api('/api/chat/messages?conversation_id='+conversationId+'&after_id='+lastId);
+  try{const {r,d}=await messageRequest;if(!r.ok||!d.success)return;const c=d.conversation;
+    document.getElementById('chatTitle').textContent=(c.customer_name||'Customer')+(c.order_id?' · Order #'+c.order_id:'');
+    document.getElementById('context').textContent=(c.customer_email||'')+' · Conversation #'+c.id;
+    if(reset){const sel=document.getElementById('linkOrder');sel.innerHTML='<option value="">No order link</option>';if(c.order_id)sel.value=c.order_id}
+    const incoming=d.messages||[];incoming.forEach(m=>{lastId=Math.max(lastId,Number(m.id)||0);appendMessage(m,false)});if(reset||incoming.length)box.scrollTop=box.scrollHeight;
+  }catch(e){if(e.name!=='AbortError')console.error('message poll',e)}finally{messageRequest=null}
+}
+document.getElementById('composer').addEventListener('submit',async e=>{
+  e.preventDefault();if(!conversationId)return;const text=input.value.trim();if(!text)return;send.disabled=true;input.disabled=true;
+  try{const fd=new FormData();fd.append('conversation_id',String(conversationId));fd.append('message',text);const {r,d}=await api('/api/chat/send',{method:'POST',body:fd},8000);
+    if(!r.ok||!d.success){alert(d.error||'Message could not be sent.');return}input.value='';const id=Number(d.message_id)||(++lastId);lastId=Math.max(lastId,id);appendMessage({id,sender_type:'admin',message:text,created_at:new Date().toLocaleString()});conversations();
+  }catch(err){console.error(err);alert(err.name==='AbortError'?'Message request timed out. Please try again.':'Could not send message.')}
+  finally{input.disabled=false;send.disabled=false;input.focus();}
 });
-document.getElementById('startBtn').onclick=async()=>{const customer=document.getElementById('customerSelect').value;if(!customer){alert('Choose a customer first.');return}const order=document.getElementById('newOrderSelect').value||null;const r=await fetch('/api/chat/conversations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customer_id:Number(customer),order_id:order?Number(order):null}),credentials:'same-origin'});const d=await r.json();if(!d.success){alert(d.error||'Could not start conversation');return}conversationId=d.conversation_id;lastId=0;await conversations();await open(conversationId)};
-document.getElementById('customerSelect').onchange=async()=>{const cid=document.getElementById('customerSelect').value;const sel=document.getElementById('newOrderSelect');sel.innerHTML='<option value="">General support</option>';if(!cid)return;try{const r=await fetch('/api/chat/admin/orders?customer_id='+encodeURIComponent(cid),{credentials:'same-origin'});const d=await r.json();if(!r.ok||!d.success)return;(d.orders||[]).forEach(o=>{const opt=document.createElement('option');opt.value=o.id;opt.textContent='Order #'+o.id+' · '+(o.status||'');sel.appendChild(opt)})}catch(e){console.error(e)}};
-conversations();populateCustomers();setInterval(conversations,2500);setInterval(populateCustomers,10000);setInterval(()=>load(),2000);
+document.getElementById('startBtn').onclick=async()=>{const customer=document.getElementById('customerSelect').value;if(!customer){alert('Choose a customer first.');return}const order=document.getElementById('newOrderSelect').value||null;
+  const {r,d}=await api('/api/chat/conversations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customer_id:Number(customer),order_id:order?Number(order):null})},8000);
+  if(!r.ok||!d.success){alert(d.error||'Could not start conversation');return}conversationId=d.conversation_id;lastId=0;await conversations();await open(conversationId);
+};
+document.getElementById('customerSelect').onchange=async()=>{
+  const cid=document.getElementById('customerSelect').value;const sel=document.getElementById('newOrderSelect');sel.innerHTML='<option value="">General support</option>';if(!cid)return;
+  if(orderRequest)return;orderRequest=api('/api/chat/admin/orders?customer_id='+encodeURIComponent(cid));
+  try{const {r,d}=await orderRequest;if(!r.ok||!d.success)return;(d.orders||[]).forEach(o=>{const opt=document.createElement('option');opt.value=o.id;opt.textContent='Order #'+o.id+' · '+(o.status||'');sel.appendChild(opt)})}
+  catch(e){if(e.name!=='AbortError')console.error(e)}finally{orderRequest=null}
+};
+conversations();populateCustomers();
+setInterval(conversations,5000);
+setInterval(populateCustomers,30000);
+setInterval(()=>load(false),1500);
+
 </script></body></html>
