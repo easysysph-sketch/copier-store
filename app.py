@@ -211,7 +211,8 @@ import threading
 import secrets
 from collections import defaultdict, deque
 from datetime import datetime, timedelta
-from flask import send_from_directory
+from flask import send_from_directory, send_file
+import io
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -948,6 +949,23 @@ def _init_db_full():
             length_cm REAL NOT NULL DEFAULT 0,
             width_cm REAL NOT NULL DEFAULT 0,
             height_cm REAL NOT NULL DEFAULT 0
+        )
+    """)
+
+    # Persistent product images. Unlike static/uploads/, these image bytes live
+    # in the same Turso/SQLite database as the product, so Render redeploys
+    # cannot delete them. The filename remains in products.image(s) for
+    # backwards compatibility with older catalog records.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS product_images (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER NOT NULL,
+            filename TEXT NOT NULL,
+            mime_type TEXT NOT NULL,
+            image_data BLOB NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(product_id, filename),
+            FOREIGN KEY(product_id) REFERENCES products(id) ON DELETE CASCADE
         )
     """)
 
@@ -5599,6 +5617,31 @@ def update_repair_status(request_id):
     return redirect("/repair-requests")
 
 
+@app.route("/product-image/<int:product_id>/<path:filename>")
+def product_image(product_id, filename):
+    """Serve persistent product image bytes from the database.
+
+    Falls back to the legacy static/uploads folder so older local images still
+    work when they exist. New uploads are stored in product_images and survive
+    Render redeploys.
+    """
+    conn = sqlite3.connect("orders.db")
+    try:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT filename, mime_type, image_data FROM product_images WHERE product_id = ? AND filename = ?",
+            (product_id, filename),
+        ).fetchone()
+    finally:
+        conn.close()
+    if row and row["image_data"]:
+        return send_file(io.BytesIO(bytes(row["image_data"])), mimetype=row["mime_type"], download_name=row["filename"], max_age=86400)
+    legacy_path = os.path.join(app.config["UPLOAD_FOLDER"], os.path.basename(filename))
+    if os.path.isfile(legacy_path):
+        return send_from_directory(app.config["UPLOAD_FOLDER"], os.path.basename(filename))
+    return "", 404
+
+
 @app.route("/product/<path:product_ref>")
 def product_details(product_ref):
 
@@ -6427,20 +6470,20 @@ def add_product():
         images = request.files.getlist("images")
 
         image_filenames = []
+        uploaded_image_records = []
 
         for image in images:
-
             if image and image.filename:
-
                 if not valid_image_upload(image):
                     return "Invalid image file. Use PNG, JPG, JPEG, or WEBP.", 400
-
                 ext = image.filename.rsplit(".", 1)[1].lower()
                 image_filename = f"product_{uuid.uuid4().hex}.{ext}"
-                os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
-                image.save(os.path.join(app.config["UPLOAD_FOLDER"], image_filename))
-
+                image_blob = image.read()
+                if not image_blob:
+                    return "Uploaded image is empty.", 400
+                mime_type = image.mimetype or {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}.get(ext, "application/octet-stream")
                 image_filenames.append(image_filename)
+                uploaded_image_records.append((image_filename, image_blob, mime_type))
 
         images_data = ",".join(image_filenames)
         # Save product to database
@@ -6470,6 +6513,12 @@ def add_product():
             weight_kg, length_cm, width_cm, height_cm, brand, model, compatible_models,
             product_type, condition, print_speed, paper_size, connectivity
         ))
+        new_product_id = cursor.lastrowid
+        for image_name, image_blob, mime_type in uploaded_image_records:
+            cursor.execute(
+                "INSERT OR REPLACE INTO product_images (product_id, filename, mime_type, image_data) VALUES (?, ?, ?, ?)",
+                (new_product_id, image_name, mime_type, image_blob),
+            )
 
         conn.commit()
         conn.close()
@@ -6600,6 +6649,44 @@ def edit_product(product_id):
             if not sub_row:
                 conn.close()
                 return "Selected subcategory does not belong to this category.", 400
+
+        # Persist newly uploaded images in the database. This is important on Render:
+        # files written to static/uploads/ are ephemeral across redeploys.
+        new_images = request.files.getlist("images")
+        uploaded_image_records = []
+        for image in new_images:
+            if image and image.filename:
+                if not valid_image_upload(image):
+                    conn.close()
+                    return "Invalid image file. Use PNG, JPG, JPEG, or WEBP.", 400
+                ext = image.filename.rsplit(".", 1)[1].lower()
+                image_filename = f"product_{uuid.uuid4().hex}.{ext}"
+                image_blob = image.read()
+                if not image_blob:
+                    conn.close()
+                    return "Uploaded image is empty.", 400
+                mime_type = image.mimetype or {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}.get(ext, "application/octet-stream")
+                uploaded_image_records.append((image_filename, image_blob, mime_type))
+
+        current = cursor.execute("SELECT image, images FROM products WHERE id = ?", (product_id,)).fetchone()
+        current_names = []
+        if current:
+            raw = current["images"] or current["image"] or ""
+            current_names = [x.strip() for x in str(raw).split(",") if x.strip()]
+        replace_images = bool(request.form.get("replace_images"))
+        if replace_images:
+            final_names = [r[0] for r in uploaded_image_records]
+        else:
+            final_names = current_names + [r[0] for r in uploaded_image_records]
+
+        cursor.execute("DELETE FROM product_images WHERE product_id = ?" if replace_images else "SELECT 1", (product_id,) if replace_images else ())
+        for image_name, image_blob, mime_type in uploaded_image_records:
+            cursor.execute(
+                "INSERT OR REPLACE INTO product_images (product_id, filename, mime_type, image_data) VALUES (?, ?, ?, ?)",
+                (product_id, image_name, mime_type, image_blob),
+            )
+        if replace_images or uploaded_image_records:
+            cursor.execute("UPDATE products SET image = ?, images = ? WHERE id = ?", (final_names[0] if final_names else None, ",".join(final_names), product_id))
 
         cursor.execute("""
             UPDATE products

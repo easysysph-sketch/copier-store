@@ -306,7 +306,7 @@ a{color:inherit}
                     </span>
 
                     <img id="galleryImage" onclick="openImageModal()"
-                        src="{{ url_for('static', filename='uploads/' + product.images.split(',')[0]) }}"
+                        src="{{ url_for('product_image', product_id=product.id, filename=product.images.split(',')[0]) }}"
                         alt="{{ product.name }}"
                         onerror="this.style.display='none'; const f=this.parentElement.querySelector('.gallery-missing'); if(f) f.style.display='grid';">
                     <div class="gallery-empty gallery-missing" style="display:none;"><div class="gallery-empty-icon">📦</div><div class="gallery-empty-text">Product image unavailable</div></div>
@@ -324,7 +324,7 @@ a{color:inherit}
                     <span class="gallery-counter">1 / 1</span>
 
                     <img id="galleryImage" onclick="openImageModal()"
-                        src="{{ url_for('static', filename='uploads/' + product.image) }}"
+                        src="{{ url_for('product_image', product_id=product.id, filename=product.image) }}"
                         alt="{{ product.name }}"
                         onerror="this.style.display='none'; const f=this.parentElement.querySelector('.gallery-missing'); if(f) f.style.display='grid';">
                     <div class="gallery-empty gallery-missing" style="display:none;"><div class="gallery-empty-icon">📦</div><div class="gallery-empty-text">Product image unavailable</div></div>
@@ -348,7 +348,7 @@ a{color:inherit}
 
                     <div class="gallery-thumbnail {% if loop.first %}active{% endif %}"
                         onclick="showGalleryImage({{ loop.index0 }})">
-                        <img src="{{ url_for('static', filename='uploads/' + image) }}" alt="{{ product.name }}" onerror="this.style.display='none';">
+                        <img src="{{ url_for('product_image', product_id=product.id, filename=image) }}" alt="{{ product.name }}" onerror="this.style.display='none';">
                     </div>
 
                     {% endfor %}
@@ -794,10 +794,10 @@ a{color:inherit}
         const productImages = [
             {% if product.images %}
         {% for image in product.images.split(',') %}
-        "{{ url_for('static', filename='uploads/' + image) }}"{% if not loop.last %}, {% endif %}
+        "{{ url_for('product_image', product_id=product.id, filename=image) }}"{% if not loop.last %}, {% endif %}
         {% endfor %}
         {% elif product.image %}
-        "{{ url_for('static', filename='uploads/' + product.image) }}"
+        "{{ url_for('product_image', product_id=product.id, filename=product.image) }}"
         {% endif %}
     ];
 

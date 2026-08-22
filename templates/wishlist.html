@@ -64,7 +64,7 @@
             </form>
             <a href="/product/{{ product.id }}" class="wishlist-image">
                 {% if product.image %}
-                    <img src="{{ url_for('static', filename='uploads/' + product.image) }}" alt="{{ product.name }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                    <img src="{{ url_for('product_image', product_id=product.id, filename=product.image) }}" alt="{{ product.name }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
                     <span style="display:none;font-size:52px">🖨️</span>
                 {% else %}
                     <span style="font-size:52px">🖨️</span>
