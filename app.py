@@ -1143,6 +1143,24 @@ def _ensure_catalog_subcategories():
             cur.execute("ALTER TABLE products ADD COLUMN subcategory TEXT")
         except Exception:
             pass
+
+        # Persistent product image storage must also be ensured for already-
+        # initialized Turso databases.  init_db() intentionally skips the full
+        # migration chain when the core schema already exists, so creating this
+        # table only inside _init_db_full() would leave older live databases
+        # without product_images and cause a 500 on the first image upload.
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS product_images (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER NOT NULL,
+                filename TEXT NOT NULL,
+                mime_type TEXT NOT NULL,
+                image_data BLOB NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(product_id, filename),
+                FOREIGN KEY(product_id) REFERENCES products(id) ON DELETE CASCADE
+            )
+        """)
         try:
             cur.execute("""
                 UPDATE product_subcategories
@@ -5628,10 +5646,15 @@ def product_image(product_id, filename):
     conn = sqlite3.connect("orders.db")
     try:
         conn.row_factory = sqlite3.Row
-        row = conn.execute(
-            "SELECT filename, mime_type, image_data FROM product_images WHERE product_id = ? AND filename = ?",
-            (product_id, filename),
-        ).fetchone()
+        try:
+            row = conn.execute(
+                "SELECT filename, mime_type, image_data FROM product_images WHERE product_id = ? AND filename = ?",
+                (product_id, filename),
+            ).fetchone()
+        except sqlite3.OperationalError:
+            # Legacy database that has not yet received the persistent-image
+            # migration: fall back to the old filesystem image below.
+            row = None
     finally:
         conn.close()
     if row and row["image_data"]:
