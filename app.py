@@ -118,6 +118,11 @@ class _CompatCursor:
             # stale-stream 404 so real SQL/database errors are never hidden.
             if "stream not found" in message and hasattr(self.connection, "_reconnect"):
                 self.connection._reconnect()
+                # The previous cursor belongs to the expired HRANA stream.
+                # Reconnecting the connection alone is not enough: recreate
+                # the cursor before retrying, otherwise the retry uses the
+                # same dead stream and the chat request fails again.
+                self.raw = self.connection.raw.cursor()
                 try:
                     if parameters is None:
                         self.raw.execute(sql)
