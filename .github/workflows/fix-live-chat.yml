@@ -1,0 +1,46 @@
+name: Fix live chat Turso cursor recovery
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/fix-live-chat.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch live chat database recovery
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app.py')
+          s = p.read_text(encoding='utf-8')
+          old = '''            if "stream not found" in message and hasattr(self.connection, "_reconnect"):\n                self.connection._reconnect()\n                try:\n                    if parameters is None:\n                        self.raw.execute(sql)\n                    else:\n                        self.raw.execute(sql, parameters)\n                    return self\n'''
+          new = '''            if "stream not found" in message and hasattr(self.connection, "_reconnect"):\n                self.connection._reconnect()\n                # The previous cursor belongs to the expired HRANA stream.\n                # Reconnecting the connection alone is not enough: recreate\n                # the cursor before retrying, otherwise the retry uses the\n                # same dead stream and the chat request fails again.\n                self.raw = self.connection.raw.cursor()\n                try:\n                    if parameters is None:\n                        self.raw.execute(sql)\n                    else:\n                        self.raw.execute(sql, parameters)\n                    return self\n'''
+          if old not in s:
+              raise SystemExit('Expected Turso cursor recovery block was not found; refusing to modify app.py.')
+          s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Validate Python syntax
+        run: python -m py_compile app.py
+
+      - name: Commit fix and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.py
+          git rm .github/workflows/fix-live-chat.yml
+          git commit -m "Fix live chat Turso cursor recovery"
+          git push origin HEAD:main
