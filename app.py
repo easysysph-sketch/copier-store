@@ -4794,63 +4794,127 @@ def customer_logout():
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    """Create a customer account using the live database schema safely.
 
+    Older deployments used ``password`` while newer schemas may also have
+    ``password_hash``.  Render/Turso can retain an older schema even after
+    application code changes, so registration must adapt to the columns that
+    actually exist instead of assuming a single schema.
+    """
     if request.method == "POST":
+        name = (request.form.get("name") or "").strip()
+        email = (request.form.get("email") or "").strip().lower()
+        phone = (request.form.get("phone") or "").strip()
+        password = request.form.get("password") or ""
+        confirm_password = request.form.get("confirm_password") or ""
 
-
-        name = request.form.get("name")
-        email = request.form.get("email")
-        phone = request.form.get("phone")
-        password = request.form.get("password")
-        confirm_password = request.form.get("confirm_password")
+        if not name or not email or not phone or not password:
+            return render_template("register.html", error="Please complete all required fields."), 400
 
         if password != confirm_password:
             return render_template(
                 "register.html",
                 error="Passwords do not match."
-            )
+            ), 400
+
+        if len(password) < 6:
+            return render_template(
+                "register.html",
+                error="Password must be at least 6 characters."
+            ), 400
 
         password_hash = generate_password_hash(password)
-
-        conn = sqlite3.connect("orders.db")
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS customers (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                email TEXT UNIQUE NOT NULL,
-                phone TEXT NOT NULL,
-                password TEXT NOT NULL
-            )
-        """)
-
+        conn = None
         try:
+            conn = sqlite3.connect("orders.db")
+            cursor = conn.cursor()
 
+            # Keep existing production databases compatible.  Do not rely on
+            # CREATE TABLE IF NOT EXISTS to modify an already-existing table.
             cursor.execute("""
-                INSERT INTO customers
-                (name, email, phone, password)
-                VALUES (?, ?, ?, ?)
-            """, (
-                name,
-                email,
-                phone,
-                password_hash
-            ))
+                CREATE TABLE IF NOT EXISTS customers (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    email TEXT UNIQUE NOT NULL,
+                    phone TEXT NOT NULL,
+                    password TEXT NOT NULL
+                )
+            """)
 
+            columns = {
+                row[1]: row for row in cursor.execute("PRAGMA table_info(customers)").fetchall()
+            }
+
+            # Some older/newer deployments use password_hash.  Add it when
+            # possible so both schemas can authenticate without a destructive
+            # migration.  SQLite/Turso supports adding a nullable column.
+            if "password_hash" not in columns:
+                try:
+                    cursor.execute("ALTER TABLE customers ADD COLUMN password_hash TEXT")
+                    columns["password_hash"] = True
+                except Exception:
+                    # If the remote schema does not allow ALTER TABLE here,
+                    # registration can still use the legacy password column.
+                    pass
+
+            # Check email explicitly so duplicate handling works consistently
+            # across SQLite and libsql/Turso drivers.
+            existing = cursor.execute(
+                "SELECT id FROM customers WHERE LOWER(TRIM(email)) = ? LIMIT 1",
+                (email,)
+            ).fetchone()
+            if existing:
+                conn.rollback()
+                return render_template(
+                    "register.html",
+                    error="An account with that email already exists."
+                ), 409
+
+            insert_columns = ["name", "email", "phone"]
+            insert_values = [name, email, phone]
+
+            # Populate whichever password columns exist. If both exist, keep
+            # them synchronized for compatibility with both login versions.
+            if "password" in columns:
+                insert_columns.append("password")
+                insert_values.append(password_hash)
+            if "password_hash" in columns:
+                insert_columns.append("password_hash")
+                insert_values.append(password_hash)
+
+            if "password" not in columns and "password_hash" not in columns:
+                raise RuntimeError("Customer table has no supported password column.")
+
+            placeholders = ", ".join("?" for _ in insert_columns)
+            cursor.execute(
+                f"INSERT INTO customers ({', '.join(insert_columns)}) VALUES ({placeholders})",
+                tuple(insert_values)
+            )
             conn.commit()
-            conn.close()
 
             return redirect("/customer-login")
 
         except sqlite3.IntegrityError:
-
-            conn.close()
-
+            if conn:
+                conn.rollback()
             return render_template(
                 "register.html",
                 error="An account with that email already exists."
-            )
+            ), 409
+        except Exception as exc:
+            if conn:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+            app.logger.exception("Customer registration failed: %s", exc)
+            return render_template(
+                "register.html",
+                error="We couldn't create your account right now. Please try again."
+            ), 500
+        finally:
+            if conn:
+                conn.close()
 
     return render_template("register.html")
 
@@ -4875,26 +4939,40 @@ def customer_login():
         cursor.execute("""
             SELECT *
             FROM customers
-            WHERE email = ?
+            WHERE LOWER(TRIM(email)) = ?
         """, (email,))
 
         customer = cursor.fetchone()
 
         conn.close()
 
-        if customer and check_password_hash(customer["password"], password):
-            session.clear()
-            session["customer_id"] = customer["id"]
-            session["csrf_token"] = secrets.token_urlsafe(32)
-            session.permanent = True
-            _clear_login_failures("customer-login")
-            security_log("customer_login_success", "Customer login succeeded", "customer", customer["id"])
+        if customer:
+            # Support both legacy ``password`` and newer ``password_hash``
+            # customer schemas.
+            stored_hash = None
+            try:
+                stored_hash = customer["password_hash"]
+            except (KeyError, IndexError):
+                pass
+            if not stored_hash:
+                try:
+                    stored_hash = customer["password"]
+                except (KeyError, IndexError):
+                    pass
 
-            next_page = _safe_next_url(
-                request.form.get("next") or request.args.get("next"),
-                "/customer-dashboard",
-            )
-            return redirect(next_page)
+            if stored_hash and check_password_hash(stored_hash, password):
+                session.clear()
+                session["customer_id"] = customer["id"]
+                session["csrf_token"] = secrets.token_urlsafe(32)
+                session.permanent = True
+                _clear_login_failures("customer-login")
+                security_log("customer_login_success", "Customer login succeeded", "customer", customer["id"])
+
+                next_page = _safe_next_url(
+                    request.form.get("next") or request.args.get("next"),
+                    "/customer-dashboard",
+                )
+                return redirect(next_page)
 
         _record_login_failure("customer-login")
         return render_template(

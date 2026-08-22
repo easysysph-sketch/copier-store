@@ -53,3 +53,12 @@ A full browser/live HTTP test could not be executed inside this analysis environ
 - The storefront JavaScript explicitly detects the 401 login-required response and redirects to `/customer-login` without showing an “Added to cart” success message.
 - Normal non-AJAX POSTs remain protected by the server-side login redirect.
 - Buy Now is also hidden for guests on the public storefront, and the existing backend authentication guard remains authoritative.
+
+
+## Customer Registration 500 Fix (2026-08-22)
+- Fixed `/register` to work with existing production customer schemas instead of assuming one exact password column layout.
+- Registration now detects `password` and/or `password_hash`, adds the optional compatibility column when possible, and writes a valid hash to the available password columns.
+- Added server-side validation for required fields, password confirmation, and minimum password length.
+- Added explicit duplicate-email detection before INSERT so duplicate accounts return a controlled response instead of an internal error.
+- Customer login now supports both `password` and `password_hash` schemas.
+- Registration errors are logged server-side while users receive a safe error message.
