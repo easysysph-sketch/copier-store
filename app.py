@@ -1941,17 +1941,21 @@ def chat_messages_api():
         recipient='customer' if is_admin else 'admin'
         try:
             cur.execute("UPDATE chat_messages SET is_read=1 WHERE conversation_id=? AND sender_type=? AND is_read=0",(conv_id,recipient))
-            conn.commit()
+            # Only commit when the UPDATE actually changed rows. Chat polling can
+            # run repeatedly, so committing an empty read-receipt transaction on
+            # every poll unnecessarily creates/uses a Turso write stream.
+            if getattr(cur, "rowcount", 0) and cur.rowcount > 0:
+                try:
+                    conn.commit()
+                except Exception as read_commit_exc:
+                    if "stream not found" not in str(read_commit_exc).lower():
+                        raise
+                    # The read receipt is non-critical; the next poll can retry it.
         except Exception as read_exc:
             # Read receipts are secondary. Never make message polling fail because
             # a Turso stream expired while marking messages as read.
             if "stream not found" not in str(read_exc).lower():
                 raise
-            try:
-                conn.close()
-            except Exception:
-                pass
-            conn=sqlite3.connect(DATABASE_PATH); conn.row_factory=sqlite3.Row; cur=conn.cursor()
         cur.execute("SELECT COUNT(*) FROM chat_messages WHERE sender_type=? AND is_read=0" , ('customer' if is_admin else 'admin',))
         unread_total=cur.fetchone()[0]
         cur.execute("SELECT c.*,cu.name customer_name,cu.email customer_email FROM chat_conversations c JOIN customers cu ON cu.id=c.customer_id WHERE c.id=?",(conv_id,)); conv_row=cur.fetchone()
@@ -2064,9 +2068,11 @@ def chat_send_api():
                 (conv_id,),
             )
             conn.commit()
-        except sqlite3.Error:
+        except Exception as timestamp_exc:
             # Message delivery already succeeded; timestamp refresh is best-effort.
-            pass
+            # Turso stream expiry can surface as ValueError, not sqlite3.Error.
+            if "stream not found" not in str(timestamp_exc).lower():
+                raise
 
         # Notifications are secondary. A notification schema/plugin mismatch must
         # NEVER make an otherwise valid chat message fail to send.
@@ -2081,11 +2087,17 @@ def chat_send_api():
                     "INSERT INTO notifications(customer_id,message) VALUES (?,?)",
                     (customer_id, "💬 You have a new message from CopierStore support."),
                 )
-        except sqlite3.Error:
+        except Exception:
             # Keep the chat message; notification can be repaired independently.
+            # Do not retry/commit here: the actual chat message was already
+            # committed above, and this request must not depend on a second Turso
+            # write stream.
             pass
 
-        conn.commit()
+        # IMPORTANT: do not commit again here. The message transaction was already
+        # committed before notifications/timestamp bookkeeping. A second commit
+        # is exactly what was producing Hrana `stream not found` errors after the
+        # user had successfully sent a message.
         return jsonify({"success": True, "conversation_id": conv_id, "message_id": msg_id})
     except sqlite3.Error as exc:
         conn.rollback()
